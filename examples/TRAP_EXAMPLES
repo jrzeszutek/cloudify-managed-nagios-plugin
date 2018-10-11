@@ -1,0 +1,41 @@
+### Preparation
+# See README for necessary preparation steps.
+# It is recommended that each set of examples be run only after cleaning up any previous examples.
+
+### Health check and reaction examples
+# All examples in this section require a deployed nagios server
+# This can be accomplished using:
+helper_scripts/deploy_nagios traps
+# All examples also use the basetrap blueprint:
+cfy install -b basetrap -d basetrap -i snmptest-blueprint-inputs.yaml blueprints/basetrap.yaml
+# Cleaning up:
+cfy uninstall basetrap
+helper_scripts/remove_nagios
+
+
+#### 1 Not triggering trap reaction due to instance count constraints
+# This demonstrates trap reaction not triggering when a min_instances constraint is in effect.
+# Now we will send a trap which will attempt to trigger a scale down workflow
+ssh -A -o StrictHostKeyChecking=no centos@$(cfy deployment outputs nagios | grep -A1 "External " | grep Value | awk '{ print $2 }') ssh -o StrictHostKeyChecking=no centos@$(cfy node-instances get $(cfy node-instances list | grep basetrap | head -n1 | awk '{ print $2 }') | grep ip: | awk '{ print $2 }') snmptrap -v2c -c testcommunity $(cfy deployments outputs nagios | grep -A1 "Internal " | grep Value | grep -v http | grep -v CERTIFICATE | awk '{ print $2 }') '\"\"' .1.3.6.1.4.1.52312.0.0.1
+# And confirm that it doesn't trigger due to instance constraints
+ssh -o StrictHostKeyChecking=no centos@$(cfy deployment outputs nagios | grep -A1 "External " | grep Value | awk '{ print $2 }') sudo tail -n5 /var/log/nagios/notify_cloudify.log | grep "No reaction"
+# You should see a message stating that no reaction took place.
+
+#### 2 Scaling down due to trap reaction
+# This demonstrates a scale down workflow being triggered due to a simple trap being received
+# We need more instances to allow this to trigger, so let's get the current address and then scale up
+cfy executions start -d basetrap -p '{"scalable_entity_name": "base_trap_host", "delta": "+1", "scale_compute": true}' scale
+# Now we'll send a trap which should trigger a scale down workflow
+ssh -A -o StrictHostKeyChecking=no centos@$(cfy deployment outputs nagios | grep -A1 "External " | grep Value | awk '{ print $2 }') ssh -o StrictHostKeyChecking=no centos@$(cfy node-instances get $(cfy node-instances list | grep basetrap | head -n1 | awk '{ print $2 }') | grep ip: | awk '{ print $2 }') snmptrap -v2c -c testcommunity $(cfy deployments outputs nagios | grep -A1 "Internal " | grep Value | grep -v http | grep -v CERTIFICATE | awk '{ print $2 }') '\"\"' .1.3.6.1.4.1.52312.0.0.1
+# And confirm that the scale down workflow triggers- this should happen within a few seconds
+for i in {1..60}; do if ! cfy executions list | grep scale | grep started | grep basetrap ; then sleep 2; else break; fi; done; cfy events list --tail -e $(cfy executions list | grep scale | grep started | awk '{ print $2 }')
+
+#### 3 Triggering reactions by sending a trap from a different source
+# Sometimes you may wish reactions to be triggered on a node other than the one that sent the trap.
+# e.g. a load balancer might send a trap indicating that a backend was unhealthy, which should heal that backend.
+# For this, we'll send a trap from the nagios host to itself, notifying of a problem with a basetrap VM instance:
+ssh -A -o StrictHostKeyChecking=no centos@$(cfy deployment outputs nagios | grep -A1 "External " | grep Value | awk '{ print $2 }') snmptrap -v2c -c testcommunity localhost '""' .1.3.6.1.4.1.52312.0.0.2 .1.3.6.1.4.1.52312.0.1.1 s "'Test message'" .1.3.6.1.4.1.52312.0.1.2 s "'The address is $(cfy node-instances get $(cfy node-instances list | grep basetrap | head -n1 | awk '{ print $2 }') | grep ip: | awk '{ print $2 }')'"
+# This should result in a heal triggering within a few seconds:
+for i in {1..60}; do if ! cfy executions list | grep heal | grep started | grep basetrap ; then sleep 2; else break; fi; done; cfy events list --tail -e $(cfy executions list | grep heal | grep started | awk '{ print $2 }')
+
+# Don't forget to run the nagios cleanup before you try another example

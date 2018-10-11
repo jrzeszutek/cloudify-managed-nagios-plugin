@@ -1,0 +1,12 @@
+define hostgroup{
+  hostgroup_name target_type:{{name}}
+  alias {{description}}
+}
+define hostgroup{
+  hostgroup_name target_type_instances:{{name}}
+  alias Instances for {{description}}
+}
+define hostgroup{
+  hostgroup_name target_type_nodes:{{name}}
+  alias Nodes for {{description}}
+}

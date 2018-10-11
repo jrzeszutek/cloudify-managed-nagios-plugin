@@ -1,0 +1,586 @@
+plugins:
+    managed_nagios:
+        executor: host_agent
+        package_name: cloudify-managed-nagios-plugin
+        package_version: 1.0.0
+        source: null
+        install: true
+
+data_types:
+    cloudify.nagios.datatypes.snmpv3_config:
+        properties:
+            username:
+                description: >
+                    Username for SNMPv3 authentication.
+                default: null
+            auth_pass:
+                description: >
+                    Authentication password for SNMPv3.
+                default: null
+            priv_pass:
+                description: >
+                    Encryption password for SNMPv3.
+                default: null
+            context:
+                description: >
+                     SNMPv3 context, e.g. for proxying to a remote device via one agent.
+                default: null
+    cloudify.nagios.datatypes.snmpv2c_config:
+        properties:
+            community:
+                description: >
+                    Community name for SNMP v2C.
+                    If v3 details are set this will be ignored.
+                default: null
+    cloudify.nagios.datatypes.snmp_properties:
+        properties:
+            v3:
+                type: cloudify.nagios.datatypes.snmpv3_config
+            v2c:
+                type: cloudify.nagios.datatypes.snmpv2c_config
+    cloudify.nagios.datatypes.workflow:
+        properties:
+            workflow_id:
+                description: >
+                    The ID of the workflow to call.
+                    If this is null then there will be no reaction.
+                default: null
+            parameters:
+                description: >
+                    A dictionary of parameters to pass to this workflow.
+                    The following substitutions will be performed:
+                    {{deployment}} - The deployment name associated with
+                                     the instance or node that this workflow
+                                     was triggered from.
+                    {{node}} - The node ID associated with the instance or
+                               node that this workflow was triggered from.
+                    {{instance}} - The instance ID of the instance that
+                                   this workflow was triggered from.
+                                   This is not applicable for checks across
+                                   all instances of a node.
+                default: {}
+            allow_custom_parameters:
+                description: >
+                    Whether to allow parameters that are not expected
+                    to be supplied to this workflow.
+                default: false
+            force:
+                description: >
+                    Whether to force this workflow to run if another
+                    workflow is running on the same deployment.
+                default: false
+
+node_types:
+    cloudify.nagios.nodes.Nagios:
+        derived_from: cloudify.nodes.ApplicationServer
+        properties:
+            nagios_web_username:
+                description: >
+                    Username for accessing nagios web interface.
+                default: cloudify_monitoring
+            nagios_web_password:
+                description: >
+                    Password for accessing nagios web interface.
+            cloudify_manager_username: 
+                description: >
+                    Username for cloudify account permitted to heal and scale monitored nodes.
+            cloudify_manager_password: 
+                description: >
+                    Password for cloudify account permitted to heal and scale monitored nodes.
+            trap_community:
+                description: >
+                    SNMP community to use for v2c SNMP traps.
+                    If this is not supplied, SNMP trap handling will not be enabled.
+                default: null
+            component_log_level:
+                description: >
+                    Lowest level of messages to log from monitoring components.
+                    This should be a valid syslog level, e.g.
+                    DEBUG, INFO, WARNING, ERROR
+                default: WARNING
+            ssl_certificate:
+                description: >
+                    The SSL certificate to use for nagios and nagiosrest.
+                    A PEM encoded certificate file with this name must exist in the blueprint
+                    under the ssl directory.
+                    If this is provided, the ssl_key must also be provided.
+                    If this is not provided, certificates will be generated and the public
+                    certificate will be added to the ssl_certificate runtime property.
+                default: null
+            ssl_key:
+                description: >
+                    The SSL private key to use for nagios and nagiosrest.
+                    A PEM encoded key file with this name must exist in the blueprint under
+                    the ssl directory.
+                    If this is provided, the ssl_certificate must also be provided.
+                default: null
+        interfaces:
+            cloudify.interfaces.lifecycle:
+                create:
+                    implementation: managed_nagios.managed_nagios_plugin.nagios.tasks.create
+                    inputs: {}
+                configure:
+                    implementation: managed_nagios.managed_nagios_plugin.nagios.tasks.configure
+                    inputs: {}
+                start:
+                    implementation: managed_nagios.managed_nagios_plugin.nagios.tasks.start
+                    inputs: {}
+                delete:
+                    implementation: managed_nagios.managed_nagios_plugin.nagios.tasks.delete
+                    inputs: {}
+            cloudify.interfaces.reconcile:
+                monitoring:
+                    implementation: managed_nagios.managed_nagios_plugin.nagios.tasks.reconcile_monitoring
+                    inputs:
+                        only_deployments:
+                            description: >
+                                A list of deployments.
+                                If set, only these listed deployments will have their monitoring re-added.
+                                Can be combined with only_tenants to only reconcile specific deployments
+                                for specific tenants.
+                            default: null
+                        only_tenants:
+                            description: >
+                                A list of tenants.
+                                If set, only these listed tenants will have their monitoring re-added.
+                                Can be combined with only_deployments to only reconcile specific deployments
+                                for specific tenants.
+                            default: null
+
+    cloudify.nagios.nodes.TargetType:
+        derived_from: cloudify.nodes.ApplicationModule
+        properties:
+            name:
+                description: >
+                    The name of this target type, e.g. VNF_model_1A
+                    Valid characters are "A-Za-z0-9_-"
+            alias:
+                description: >
+                    A user friendly name for this target type, e.g. VNF Model 1A
+                    Valid characters are "A-Za-z0-9_- "
+                    If not set, the name will be used.
+                default: null
+            snmp_properties:
+                type: cloudify.nagios.datatypes.snmp_properties
+            action_on_instance_failure:
+                description: >
+                    What workflow to run if an instance's host health check fails.
+                type: cloudify.nagios.datatypes.workflow
+            instance_health_check:
+                description: >
+                    What command to use to check instance health.
+                    Valid values are: check-host-icmp, do-not-check
+                default: check-host-icmp
+            check_interval:
+                description: >
+                    How frequently to run checks for this target type.
+                    Note that with do-not-check, this setting effectively does nothing.
+                    With the default check_interval, retry_interval, and max_check_attempts,
+                    it may take approximately 2.5 minutes for a dead node to be healed
+                    (assuming failure occurs just after a check, 1 minute to the next check,
+                     then 3 failed retries at 30 seconds apart for a total of 2.5 minutes)
+                    Lowering these settings may risk premature healing in a network with
+                    moderate packet loss.
+                default: 1
+            retry_interval:
+                description: >
+                    How often to retry checks after a failure.
+                default: 0.5
+            max_check_retries:
+                description: >
+                    How many failed check retries are required before a reaction is triggered.
+                default: 3
+        interfaces:
+            cloudify.interfaces.lifecycle:
+                create:
+                    implementation: managed_nagios.managed_nagios_plugin.target_type.tasks.create
+                    inputs: {}
+                delete:
+                    implementation: managed_nagios.managed_nagios_plugin.target_type.tasks.delete
+                    inputs: {}
+
+    # Note that any target types that need to react to this trap must be linked to it
+    # by a target_type_checks relationship
+    cloudify.nagios.nodes.SNMPTrapReaction:
+        derived_from: cloudify.nodes.ApplicationModule
+        properties:
+            trap_oid:
+                description: >
+                    Which trap OID to trigger on.
+            instance_oid:
+                description: >
+                    OID containing instance name or address.
+                    If this is not set then the source IP of the trap will be used.
+                default: null
+            instance_finder:
+                description: >
+                    Regex to find instance name or address from instance_oid.
+                    This must use named groups, and at least one of the name or address
+                    must be provided.
+                    If the address is provided it will be used to look up the instance name.
+                    If the name is provided then the address is not required.
+                    By default, the data supplied by instance_oid will be used as the name.
+                default: '^(?P<name>.*)$'
+            oid_for_message:
+                description: >
+                    Which OID from the trap to include in the messages.
+                    This is purely for informational purposes and will not affect any reactions.
+                default: null
+            min_instances:
+                description: >
+                    The minimum amount of instances that will allow triggering of this trap
+                    reaction.
+                    e.g. if this is set to 2 and there is only 1 instance, no reactions will
+                    occur for this trap.
+                    Note that if there are multiple reactions defined that scale down an instance
+                    and are set to force the workflows to run then the amount of instances may be
+                    reduced below this level before any new reactions are refused.
+                    Therefore, workflows that will scale down may be better with 'force' set to
+                    false for safety.
+                default: null
+            max_instances:
+                description: >
+                    The maximum amount of instances that will allow triggering of this trap
+                    reaction.
+                    e.g. if this is set to 10 and there are 11 instances, no reactions will
+                    occur for this trap.
+                    Note that if there are multiple reactions defined that scale up an instance
+                    and are set to force the workflows to run then the amount of instances may be
+                    increased above this level before any new reactions are refused.
+                    Therefore, workflows that will scale down may be better with 'force' set to
+                    false if exceeding this limit will cause problems.
+                default: null
+            reaction:
+                description: >
+                    What action to take when the trap is triggered.
+                type: cloudify.nagios.datatypes.workflow
+        interfaces:
+            cloudify.interfaces.lifecycle:
+                create:
+                    implementation: managed_nagios.managed_nagios_plugin.snmp_trap.tasks.create
+                    inputs: {}
+                delete:
+                    implementation: managed_nagios.managed_nagios_plugin.snmp_trap.tasks.delete
+                    inputs: {}
+
+    # Check SNMP OIDs across all instances of nodes of the associated target type.
+    # The returned values will be aggregated using the specified approach (aggregation_type).
+    cloudify.nagios.nodes.SNMPAggregateValueCheck:
+        derived_from: cloudify.nodes.ApplicationModule
+        properties:
+            check_description:
+                description: >
+                    Description for this service check, e.g. "Average connections per second"
+                    Valid characters are "A-Za-z0-9_- "
+            aggregation_type:
+                description: >
+                    What method to use to aggregate the data from each specified OID from each
+                    specified instance.
+                    Valid options are: arithmetic_mean, sum
+                    Caution should be exercised when using 'sum', as new monitored nodes being
+                    created or old ones deleted can cause large changes in the monitored value.
+                    If it is not possible to arrange checks to avoid these issues (e.g. by using
+                    arithmetic_mean combined with other non-aggregated value checks) then this
+                    can be mitigated by setting on_unknown to abort and max_check_retries to a
+                    value that will ensure that the erroneous values are retried enough times
+                    to avoid undesired reactions.
+            on_unknown:
+                description: >
+                    What to do if encountering unreachable or otherwise unpollable instances of
+                    a node.
+                    'ignore' will ignore the node but process the average from the rest of the nodes.
+                    'abort' will cause the aggregate check to enter an unknown status.
+                default: abort
+            snmp_oids:
+                description: >
+                    Which OIDs to query on each instance of nodes of this target type.
+                    These should be in numeric form or with MIB references.
+                    Pure numeric (e.g. .1.3.6.1.4.1.2021.10.1.3.3) are not recommended,
+                    as this can in some cases cause less information to be returned by the
+                    checks (though this will not prevent basic alerting and reactions).
+                    This should be one or more OIDs, comma separated if there is more than one.
+            low_min_instances:
+                description: >
+                    The minimum amount of instances that will allow triggering of low threshold
+                    reactions.
+                    e.g. if this is set to 2 and there is only 1 instance, no low threshold
+                    reactions will occur for this check.
+                    Note that if there are multiple reactions defined that scale down an instance
+                    and are set to force the workflows to run then the amount of instances may be
+                    reduced below this level before any new reactions are refused.
+                    Therefore, workflows that will scale down may be better with 'force' set to
+                    false for safety.
+                default: null
+            low_max_instances:
+                description: >
+                    The maximum amount of instances that will allow triggering of low threshold
+                    reactions.
+                    e.g. if this is set to 10 and there are 11 instances, no low threshold
+                    reactions will occur for this check.
+                    Note that if there are multiple reactions defined that scale up an instance
+                    and are set to force the workflows to run then the amount of instances may be
+                    increased above this level before any new reactions are refused.
+                    Therefore, workflows that will scale down may be better with 'force' set to
+                    false if exceeding this limit will cause problems.
+                default: null
+            low_warning_threshold:
+                description: >
+                    Warning state when below this threshold.
+                    Warning states will not cause actions, they are for visual feedback.
+                default: ""
+            low_critical_threshold:
+                description: >
+                    Critical state when below this threshold.
+                default: ""
+            high_min_instances:
+                description: >
+                    The minimum amount of instances that will allow triggering of high threshold
+                    reactions.
+                    e.g. if this is set to 2 and there is only 1 instance, no high threshold
+                    reactions will occur for this check.
+                    Note that if there are multiple reactions defined that scale down an instance
+                    and are set to force the workflows to run then the amount of instances may be
+                    reduced below this level before any new reactions are refused.
+                    Therefore, workflows that will scale down may be better with 'force' set to
+                    false for safety.
+                default: null
+            high_max_instances:
+                description: >
+                    The maximum amount of instances that will allow triggering of high threshold
+                    reactions.
+                    e.g. if this is set to 10 and there are 11 instances, no high threshold
+                    reactions will occur for this check.
+                    Note that if there are multiple reactions defined that scale up an instance
+                    and are set to force the workflows to run then the amount of instances may be
+                    increased above this level before any new reactions are refused.
+                    Therefore, workflows that will scale down may be better with 'force' set to
+                    false if exceeding this limit will cause problems.
+                default: null
+            high_warning_threshold:
+                description: >
+                    Warning state when above this threshold.
+                    Warning states will not cause actions, they are for visual feedback.
+                default: ""
+            high_critical_threshold:
+                description: >
+                    Critical state when above this threshold.
+                default: ""
+            action_on_low_threshold:
+                description: >
+                    What action to take when the low critical threshold is breached.
+                type: cloudify.nagios.datatypes.workflow
+            action_on_high_threshold:
+                description: >
+                    What action to take when the high critical threshold is breached.
+                type: cloudify.nagios.datatypes.workflow
+            max_check_retries:
+                description: >
+                    How many retries to make to confirm unhealthy state.
+                default: 1
+            check_interval:
+                description: >
+                    How often to run checks, in minutes.
+                default: 1
+            retry_interval:
+                description: >
+                    How long to wait to retry check for unhealthy results, in minutes.
+                default: 0.5
+            rate_check:
+                description: >
+                    Whether this is a rate check (calculating the change in value since the last check).
+                default: false
+
+    # Check a single OID value on every instance of this target type
+    cloudify.nagios.nodes.SNMPValueCheck:
+        derived_from: cloudify.nodes.ApplicationModule
+        properties:
+            check_description:
+                description: >
+                    Description for this service check, e.g. "Connections per second"
+                    Valid characters are "A-Za-z0-9_- "
+            snmp_oid:
+                description: >
+                    Which OID to query, in numeric form or with MIB references.
+                    Pure numeric (e.g. .1.3.6.1.4.1.2021.10.1.3.3) are not recommended,
+                    as this can in some cases cause less information to be returned by the
+                    checks (though this will not prevent basic alerting and reactions).
+            low_min_instances:
+                description: >
+                    The minimum amount of instances that will allow triggering of low threshold
+                    reactions.
+                    e.g. if this is set to 2 and there is only 1 instance, no low threshold
+                    reactions will occur for this check.
+                    Note that if there are multiple reactions defined that scale down an instance
+                    and are set to force the workflows to run then the amount of instances may be
+                    reduced below this level before any new reactions are refused.
+                    Therefore, workflows that will scale down may be better with 'force' set to
+                    false for safety.
+                default: null
+            low_max_instances:
+                description: >
+                    The maximum amount of instances that will allow triggering of low threshold
+                    reactions.
+                    e.g. if this is set to 10 and there are 11 instances, no low threshold
+                    reactions will occur for this check.
+                    Note that if there are multiple reactions defined that scale up an instance
+                    and are set to force the workflows to run then the amount of instances may be
+                    increased above this level before any new reactions are refused.
+                    Therefore, workflows that will scale down may be better with 'force' set to
+                    false if exceeding this limit will cause problems.
+                default: null
+            low_warning_threshold:
+                description: >
+                    Warning state when below this threshold.
+                    Warning states will not cause actions, they are for visual feedback.
+                default: ""
+            low_critical_threshold:
+                description: >
+                    Critical state when below this threshold.
+                default: ""
+            high_min_instances:
+                description: >
+                    The minimum amount of instances that will allow triggering of high threshold
+                    reactions.
+                    e.g. if this is set to 2 and there is only 1 instance, no high threshold
+                    reactions will occur for this check.
+                    Note that if there are multiple reactions defined that scale down an instance
+                    and are set to force the workflows to run then the amount of instances may be
+                    reduced below this level before any new reactions are refused.
+                    Therefore, workflows that will scale down may be better with 'force' set to
+                    false for safety.
+                default: null
+            high_max_instances:
+                description: >
+                    The maximum amount of instances that will allow triggering of high threshold
+                    reactions.
+                    e.g. if this is set to 10 and there are 11 instances, no high threshold
+                    reactions will occur for this check.
+                    Note that if there are multiple reactions defined that scale up an instance
+                    and are set to force the workflows to run then the amount of instances may be
+                    increased above this level before any new reactions are refused.
+                    Therefore, workflows that will scale down may be better with 'force' set to
+                    false if exceeding this limit will cause problems.
+                default: null
+            high_warning_threshold:
+                description: >
+                    Warning state when above this threshold.
+                    Warning states will not cause actions, they are for visual feedback.
+                default: ""
+            high_critical_threshold:
+                description: >
+                    Critical state when above this threshold.
+                default: ""
+            action_on_low_threshold:
+                description: >
+                    What action to take when the low critical threshold is breached.
+                type: cloudify.nagios.datatypes.workflow
+            action_on_high_threshold:
+                description: >
+                    What action to take when the high critical threshold is breached.
+                type: cloudify.nagios.datatypes.workflow
+            max_check_retries:
+                description: >
+                    How many retries to make to confirm unhealthy state.
+                default: 1
+            check_interval:
+                description: >
+                    How often to run checks, in minutes.
+                default: 1
+            retry_interval:
+                description: >
+                    How long to wait to retry check for unhealthy results, in minutes.
+                default: 0.5
+            rate_check:
+                description: >
+                    Whether this is a rate check (calculating the change in value since the last check).
+                default: false
+
+    cloudify.nagios.nodes.CheckGroupType:
+        derived_from: cloudify.nodes.ApplicationModule
+        properties:
+            name:
+                description: >
+                    Description for this service check, e.g. "Average connections per second"
+                    Valid characters are "A-Za-z0-9_- "
+            aggregation_type:
+                description: >
+                    What method to use to aggregate the data from each specified OID from each
+                    specified instance.
+                    Valid options are: arithmetic_mean, sum
+            on_unknown:
+                description: >
+                    What to do if encountering unknown check results.
+                    'ignore' will ignore the node but process the average from the rest of the group.
+                    'abort' will cause the aggregate check to enter an unknown status.
+                default: abort
+            low_warning_threshold:
+                description: >
+                    Warning state when below this threshold.
+                    Warning states will not cause actions, they are for visual feedback.
+                default: ""
+            low_critical_threshold:
+                description: >
+                    Critical state when below this threshold.
+                default: ""
+            high_warning_threshold:
+                description: >
+                    Warning state when above this threshold.
+                    Warning states will not cause actions, they are for visual feedback.
+                default: ""
+            high_critical_threshold:
+                description: >
+                    Critical state when above this threshold.
+                default: ""
+            action_on_low_threshold:
+                description: >
+                    What action to take when the low critical threshold is breached.
+                type: cloudify.nagios.datatypes.workflow
+            action_on_high_threshold:
+                description: >
+                    What action to take when the high critical threshold is breached.
+                type: cloudify.nagios.datatypes.workflow
+            check_interval:
+                description: >
+                    How often to run checks, in minutes.
+                    This should be at most as frequent as the checks in the group, as otherwise
+                    their values will be unlikely to have changed between checks.
+                default: 1
+        interfaces:
+            cloudify.interfaces.lifecycle:
+                create:
+                    implementation: managed_nagios.managed_nagios_plugin.check.tasks.create_group
+                    inputs: {}
+                delete:
+                    implementation: managed_nagios.managed_nagios_plugin.check.tasks.delete_group
+                    inputs: {}
+
+    cloudify.nagios.nodes.MIB:
+        derived_from: cloudify.nodes.ApplicationModule
+        properties:
+            name:
+                description: >
+                    Name of MIB file under blueprint's 'mibs' directory.
+        interfaces:
+            cloudify.interfaces.lifecycle:
+                create:
+                    implementation: managed_nagios.managed_nagios_plugin.mib.tasks.create
+                    inputs: {}
+                delete:
+                    implementation: managed_nagios.managed_nagios_plugin.mib.tasks.delete
+                    inputs: {}
+
+relationships:
+    cloudify.nagios.target_type_checks:
+        derived_from: cloudify.relationships.connected_to
+
+    cloudify.nagios.configuration_for_nagios_server:
+        derived_from: cloudify.relationships.contained_in
+
+    cloudify.nagios.node_monitored_by_nagios:
+        derived_from: cloudify.relationships.connected_to
+
+    cloudify.nagios.proxy_for_target_type:
+        derived_from: cloudify.relationships.connected_to
+
+    cloudify.nagios.group_check:
+        derived_from: cloudify.relationships.connected_to

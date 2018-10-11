@@ -1,0 +1,51 @@
+### Preparation
+# See README for necessary preparation steps.
+# It is recommended that each set of examples be run only after cleaning up any previous examples.
+
+### Health check and reaction examples
+# All examples in this section require a deployed nagios server
+# This can be accomplished using:
+helper_scripts/deploy_nagios aggregates
+# Cleaning up:
+helper_scripts/remove_nagios
+
+
+#### 1 Scaling down when threshold exceeded
+# This demonstrates scaling down, to a minimum of one instance, when the average (arithmetic mean) of values from all instances on a node is exceeded
+# This example needs the baseaggregate blueprint
+cfy install -b baseaggregate -d baseaggregate -i snmptest-blueprint-inputs.yaml blueprints/baseaggregate.yaml
+# We'll make the test value that is being retrieved exceed the value. As there are two instances to start with, we must make it at least twice as high as the threshold.
+ssh -A -o StrictHostKeyChecking=no centos@$(cfy deployment outputs nagios | grep -A1 "External " | grep Value | awk '{ print $2 }') ssh -o StrictHostKeyChecking=no centos@$(cfy node-instances get $(cfy node-instances list | grep baseaggregate | head -n1 | awk '{ print $2 }') | grep ip: | awk '{ print $2 }') echo 42 '">"' /tmp/cloudifytestinteger
+# And confirm that the scale workflow triggers- this should happen within a few seconds
+for i in {1..60}; do if ! cfy executions list | grep scale | grep started | grep baseaggregate; then sleep 2; else break; fi; done; cfy events list --tail -e $(cfy executions list | grep scale | grep started | awk '{ print $2 }')
+# Cleaning up:
+cfy uninstall baseaggregate
+
+
+#### 2 Aborting aggregate check when encountering unknowns
+# This demonstrates an aggregate check aborting if one of its targets is unreachable
+# This example needs the baseaggregate blueprint
+cfy install -b baseaggregate -d baseaggregate -i snmptest-blueprint-inputs.yaml blueprints/baseaggregate.yaml
+# We will disable one of the nodes so that it is in an unknown state
+nova stop server_baseaggregate_$(cfy node-instances list | grep base_aggregate_host | head -n1 | awk '{ print $2 }')
+# And confirm that the check enters an unknown state
+for i in {1..60}; do if ! ssh -A -o StrictHostKeyChecking=no centos@$(cfy deployment outputs nagios | grep -A1 "External " | grep Value | awk '{ print $2 }') sudo tail -n10 /var/log/nagios/check_snmp_aggregate.log | grep UNKNOWN; then sleep 2; else break; fi; done
+# Cleaning up:
+nova start $(nova list | grep baseaggregate | grep SHUTOFF | awk '{ print $4 }')  # Turning the node back on to avoid problems during uninstall
+cfy uninstall baseaggregate
+
+
+#### 3 Ignoring unreachable instances
+# This demonstrates scaling down, to a minimum of one instance, when the rate is low and one of the instances is in an unknown state
+# This example needs the baseaggregate blueprint
+cfy install -b baseaggregate -d baseaggregate -i snmptest-blueprint-inputs.yaml blueprints/baseaggregate.yaml
+# We will disable one of the nodes so that it is in an unknown state
+nova stop server_baseaggregate_$(cfy node-instances list | grep base_aggregate_host | head -n1 | awk '{ print $2 }')
+# We'll make the test value that is being retrieved breach the threshold. We will get the address with nova so that we get the VM that is powered on
+ssh -A -o StrictHostKeyChecking=no centos@$(cfy deployment outputs nagios | grep -A1 "External " | grep Value | awk '{ print $2 }') ssh -o StrictHostKeyChecking=no centos@$(nova list | grep baseaggregate | grep ACTIVE | awk '{ print $12 }' | cut -d'=' -f2) echo $(date +%s):0 '">"' /tmp/cloudifytestcounter
+# And confirm that the scale workflow triggers- this should happen within ~30 seconds
+for i in {1..60}; do if ! cfy executions list | grep scale | grep started | grep baseaggregate; then sleep 2; else break; fi; done; nova start $(nova list | grep baseaggregate | grep SHUTOFF | awk '{ print $4 }'); cfy events list --tail -e $(cfy executions list | grep scale | grep started | awk '{ print $2 }')  # We turn the node back on in case that node is picked for scale down
+# Cleaning up:
+cfy uninstall baseaggregate
+
+# Don't forget to run the nagios cleanup before you try another example

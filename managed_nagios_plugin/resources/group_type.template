@@ -1,0 +1,4 @@
+define hostgroup{
+  hostgroup_name group_type:{{group_name}}
+  alias Instances of group {{group_name}}
+}

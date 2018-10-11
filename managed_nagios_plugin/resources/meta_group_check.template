@@ -1,0 +1,11 @@
+define service{
+  use generic-service
+  host tenant:{{tenant}}/group_type:{{group_type}}
+  service_description Meta group check for prefix {{group_instance_prefix}} for group {{group_type}} for tenant {{tenant}}
+  check_command check_group_meta_aggregate!{{group_type}}!{{group_instance_prefix}}!{{tenant}}!{{unknown}}!{{approach}}!{{low_warning_threshold}}!{{low_critical_threshold}}!{{high_warning_threshold}}!{{high_critical_threshold}}
+  max_check_attempts 1
+  check_interval {{check_interval}}
+  retry_interval 1
+  notification_interval {{check_interval}}
+  contacts automation
+}

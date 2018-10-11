@@ -1,0 +1,18 @@
+policy_module(cloudify-nagios-snmp-trap-handler, 1.0.0)
+
+require {
+  type snmpd_t;
+  type nagios_etc_t;
+  type nagios_spool_t;
+}
+
+allow snmpd_t nagios_etc_t:file read;
+allow snmpd_t nagios_etc_t:file getattr;
+allow snmpd_t nagios_etc_t:file open;
+allow snmpd_t nagios_spool_t:file read;
+allow snmpd_t nagios_spool_t:file getattr;
+allow snmpd_t nagios_spool_t:file open;
+allow snmpd_t nagios_spool_t:fifo_file open;
+allow snmpd_t nagios_spool_t:fifo_file write;
+allow snmpd_t nagios_spool_t:fifo_file getattr;
+

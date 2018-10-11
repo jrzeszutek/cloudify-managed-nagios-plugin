@@ -1,0 +1,32 @@
+### Preparation
+# See README for necessary preparation steps.
+# It is recommended that each set of examples be run only after cleaning up any previous examples.
+
+
+### Nagios server deployment examples
+
+
+#### 1 Nagios deployed with a pre-created certificate
+# This uses the nagios-precert blueprint, and the included SSL cert files
+# First, upload and deploy the blueprint using the necessary inputs:
+cfy install -b nagios-precert -d nagios-precert -i nagios-blueprint-inputs.yaml blueprints/nagios-precert.yaml
+# Now we can confirm that the correct certificate was deployed and is present in the outputs:
+# Confirming the outputs are correct:
+diff <(cfy deployment outputs nagios-precert | sed -e '/BEGIN CERTIFICATE/,/END CERTIFICATE/!d' | sed 's/.*Value: //') blueprints/ssl/example.crt && echo Deployment output certificate matches.
+# Confirming that the certificate has been correctly applied to the nagios server:
+echo | openssl s_client -connect $(cfy deployment outputs nagios-precert | grep -A1 'External nagios address' | grep Value | awk '{ print $2 }'):443 | grep -E 'CN=nagioscertexample\b' && echo Server certificate matches.
+# Cleaning up
+cfy uninstall nagios-precert
+
+
+#### 2 Nagios server generating its own certificate
+# This uses the nagios-gencert blueprint
+# First, upload and deploy the blueprint using the necessary inputs
+cfy install -b nagios-gencert -d nagios-gencert -i nagios-blueprint-inputs.yaml blueprints/nagios-gencert.yaml
+# Now we can confirm that a new certificate was generated and is present in the outputs:
+# Confirming the certificate in the outputs matches the one on the server:
+diff <(echo | openssl s_client -connect $(cfy deployment outputs nagios-gencert | grep -A1 'External nagios address' | grep Value | awk '{ print $2 }'):443 | openssl x509 -text -noout) <(cfy deployment outputs nagios-gencert | sed -e '/BEGIN CERTIFICATE/,/END CERTIFICATE/!d' | sed 's/.*Value: //' | openssl x509 -text -noout) && echo Certificate in outputs matches certificate on server.
+# Confirming the generated certificate has the nagios server's internal (not floating) IP:
+echo | openssl s_client -connect $(cfy deployment outputs nagios-gencert | grep -A1 'External nagios address' | grep Value | awk '{ print $2 }'):443 | openssl x509 -text -noout | grep $(cfy deployment outputs nagios-gencert | grep -A1 'Internal nagios address' | grep Value | awk '{ print $2 }') && echo Certificate has expected IP.
+# Cleaning up
+cfy uninstall nagios-gencert

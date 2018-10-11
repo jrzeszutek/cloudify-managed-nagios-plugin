@@ -1,0 +1,30 @@
+### Preparation
+# In order to run these examples you will need:
+# 1. A working cloudify manager (tested with 4.4), with an already configured profile for the cfy CLI on openstack. HTTPS is not yet supported.
+# 2. A clean Centos 7 image available on openstack, with the centos user having full passwordless sudo permissions (more restrictive permissions not tested for this).
+# 3. A permissive enough default security group to allow access to SNMP (UDP port 161), the cloudify manager and its agents, and nagios (TCP port 80 currently)
+# 4. An SSH key on your local system which corresponds to an existing key on openstack.
+# 5. For some examples, openstack nova and configuration for it (e.g. an openstackrc file) will also be needed.
+
+# Before running any of the examples you will need to create the necessary secrets and inputs files,
+# and upload the plugins
+# This can be done using:
+helper_scripts/prepare_secrets_and_inputs
+helper_scripts/upload_plugins
+
+# Examples are divided into several files:
+# SERVER_EXAMPLES
+#   - This provides examples of options available for deploying the nagios server, e.g. pre-generated SSL certs.
+# BASE_EXAMPLES
+#   - This provides examples of base healing of nodes with no important checks, and base helper functions.
+# TRAP_EXAMPLES
+#   - This provides examples of reactions based on traps received from a node instance or another external source.
+# VALUE_EXAMPLES.
+#   - This provides examples of reactions to changing values retrieved from a single node-instance.
+# AGGREGATE_EXAMPLES
+#   - This provides examples of reactions to changing values aggregated across all instances of a given node.
+# GROUP_EXAMPLES
+#   - This provides examples of reactions to changing values aggregated across multiple aggregate checks,
+#     as well as aggregates of those aggregates, allowing for some more complicated monitoring setups.
+
+# TODO: Descriptive example (not blueprint) of uses of each of the available components

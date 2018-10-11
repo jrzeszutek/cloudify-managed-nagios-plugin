@@ -1,0 +1,57 @@
+### Preparation
+# See README for necessary preparation steps.
+# It is recommended that each set of examples be run only after cleaning up any previous examples.
+
+### Health check and reaction examples
+# All examples in this section require a deployed nagios server
+# This can be accomplished using:
+helper_scripts/deploy_nagios base
+# Cleaning up:
+# When you wish to remove nagios, you should clear all test nodes and then run the following command.
+# It is recommended that this is done after uninstalling all of these examples and before trying other examples.
+helper_scripts/remove_nagios
+
+
+#### 1 Healing unhealthy instances
+# This demonstrates instances which can no longer be reached by nagios being healed.
+# This uses the baseinstance blueprint:
+cfy install -b baseinstance -d baseinstance -i snmptest-blueprint-inputs.yaml blueprints/baseinstance.yaml
+# Now we will power off the node
+nova stop server_baseinstance_$(cfy node-instances list | grep base_test_host | head -n1 | awk '{ print $2 }')
+# And wait for the heal to run- this should happen within about 15 seconds
+for i in {1..60}; do if ! cfy executions list | grep heal | grep started | grep baseinstance ; then sleep 2; else break; fi; done; cfy events list --tail -e $(cfy executions list | grep heal | grep started | awk '{ print $2 }')
+# Cleaning up
+cfy uninstall baseinstance
+
+#### 2 Reconciling monitored nodes
+# This demonstrates recovering from damage to a nagios instance, causing it to re-monitor all nodes again.
+# This uses the base instance
+cfy install -b baseinstance -d baseinstance -i snmptest-blueprint-inputs.yaml blueprints/baseinstance.yaml
+# Now we will heal nagios, simulating it becoming unhealthy and requiring healing:
+nagios_instance_id=$(cfy node-instances list | awk '{ print $2 }' | grep -oE '(nagios_[^_ ]+)$')
+cfy executions start -d nagios -p "{"'"'"node_instance_id"'"'": "'"'"${nagios_instance_id}"'"'"}" heal
+# And update the secrets
+nagios_address=$(cfy deployments outputs nagios | grep Value | grep http | awk '{ print $2 }')
+internal_nagios_address=$(cfy deployments outputs nagios | grep -A1 Internal | grep Value | awk '{ print $2 }')
+nagios_web_username=$(cfy deployments outputs nagios | grep -A1 Username | grep Value | awk '{ print $2 }')
+nagios_web_password=$(cfy deployments outputs nagios | grep -A1 Password | grep Value | awk '{ print $2 }')
+for secret in address user pass certificate; do
+    cfy secrets delete nagiosrest_${secret}
+done
+cfy secrets create -s ${internal_nagios_address} nagiosrest_address
+cfy secrets create -s ${nagios_web_username} nagiosrest_user
+cfy secrets create -s ${nagios_web_password} nagiosrest_pass
+cfy secrets create -f <(cfy deployments outputs nagios | awk '/BEGIN CERTIFICATE/,/END CERTIFICATE/' | sed -r 's/.*Value:[^-]*//') nagiosrest_certificate
+echo "You should now be able to log in to nagios on your prepared nagios VM under ${nagios_address}"
+echo "The username and password (as specified in the blueprint) are testuser and testpass, respectively."
+echo "The certificate is available under the nagiosrest_certificate."
+# If we now log into the nagios server we should see that it does not have any monitored nodes
+# We can fix this by running:
+cfy executions start -d nagios -p '{"node_ids": ["nagios"],"operation": "cloudify.interfaces.reconcile.monitoring","allow_kwargs_override": true}' execute_operation
+# After running this, the node should appear and be monitored by nagios within a short time
+# Note that there are several options available to target this reconcile operation on, e.g. specific tenants
+# Note also that the reconcile operation only adds nodes found on cloudify, it does not delete anything.
+# When finished, the base instance can be deleted:
+cfy uninstall baseinstance
+
+# Don't forget to run the nagios cleanup before you try another example

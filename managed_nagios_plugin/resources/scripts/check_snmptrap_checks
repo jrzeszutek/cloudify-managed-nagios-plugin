@@ -1,0 +1,134 @@
+#! /usr/bin/env python
+import os
+import re
+import sys
+
+import logging_utils
+from nagios_plugin_utils import (
+    STATUS_OK,
+    STATUS_WARNING,
+    STATUS_CRITICAL,
+)
+import nagios_utils
+
+
+def process_running(pid):
+    return pid in os.listdir('/proc')
+
+
+def reaction_just_finished(host, service_name):
+    current_status = nagios_utils.get_nagios_status()
+    for service in current_status['servicestatus']:
+        if (
+            service['host_name'] == host
+            and service['service_description'] == service_name
+        ):
+            # It just finished if the state is not still warning
+            return service['current_state'] != '1'
+    # If we don't find it then it is no longer monitored by nagios and so
+    # should not prompt any further concerns (it was likely just removed)
+    return True
+
+
+def check_snmptrap_check_states(nagios_status, logger):
+    issues = []
+    cannot_recover = False
+
+    pid_finder = re.compile('^(\d+) reacting to - SNMPTRAP')
+
+    logger.info('Checking services')
+    for service in nagios_status['servicestatus']:
+        host = service['host_name']
+        service_name = service['service_description']
+        state = service['current_state']
+        output = service['plugin_output']
+        logger.debug(
+            'Considering service {service} for host {host} with state '
+            '{state} and output {output}'.format(
+                service=service_name,
+                host=host,
+                state=state,
+                output=output,
+            )
+        )
+
+        # Handle any SNMP trap checks in warning state
+        if state == '1' and 'SNMPTRAP' in output:
+            logger.debug('Service appears to be reacting...')
+            pid = pid_finder.findall(output)
+            if pid:
+                pid = pid[0]
+                logger.debug('PID found was: {pid}'.format(pid=pid))
+
+                if not process_running(pid):
+                    logger.debug('Process was not running, '
+                                 'checking for race condition')
+                    # Avoid retriggering a reaction due to race conditions
+                    if reaction_just_finished(host, service_name):
+                        logger.debug('Reaction finished, no cause for alarm')
+                        continue
+
+                    logger.warn(
+                        'Reaction process {pid} for {service} on host {host} '
+                        'was not running. Attempting recovery'.format(
+                            pid=pid,
+                            service=service_name,
+                            host=host,
+                        )
+                    )
+                    # Strip off the 'reacting' part of the message to allow
+                    # the trap to be processed again
+                    reset_check_result = output.split('-', 1)[1].lstrip()
+                    logger.debug(
+                        'Updating passive check result for {service} on '
+                        '{host} to CRITICAL state with message: '
+                        '{message}'.format(
+                            host=host,
+                            service=service_name,
+                            message=reset_check_result,
+                        )
+                    )
+                    nagios_utils.submit_passive_check_result(
+                        host=host,
+                        service=service_name,
+                        status='2',
+                        output=reset_check_result,
+                    )
+                    issues.append(
+                        'Process {pid} reacting to {svc} on {host} was not '
+                        'running. Status was reset.'.format(
+                            pid=pid,
+                            svc=service_name,
+                            host=host,
+                        )
+                    )
+            else:
+                message = (
+                    'Warning state found but PID could not be located: '
+                    '{output}'.format(output=output)
+                )
+                logger.error(message)
+                issues.append(message)
+                cannot_recover = True
+
+    if issues:
+        logger.debug('Issues found, preparing output')
+        if cannot_recover:
+            logger.error('Unrecoverable issues found')
+            issues.insert(0, 'Unrecoverable SNMP trap issues found')
+            exit_status = STATUS_CRITICAL
+        else:
+            logger.warn('Recoverable issues found')
+            issues.insert(0, 'Attempting to recover from SNMP trap issues')
+            exit_status = STATUS_WARNING
+        issues = '; '.join(issues)
+        print(issues)
+        sys.exit(exit_status)
+    else:
+        print('SNMP trap checks are healthy')
+        sys.exit(STATUS_OK)
+
+
+if __name__ == '__main__':
+    logger = logging_utils.Logger('check_snmptrap_checks')
+    check_snmptrap_check_states(nagios_utils.get_nagios_status(), logger)

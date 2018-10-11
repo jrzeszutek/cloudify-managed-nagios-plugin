@@ -1,0 +1,11 @@
+define service{
+  use generic-service
+  hostgroup_name target_type_instances:{{target_type}}
+  service_description {{target_type}}_instances:SNMPTRAP {{oid}}
+  check_command do-not-check
+  active_checks_enabled 0
+  max_check_attempts 1
+  check_interval 1
+  notification_interval 1
+  contacts automation
+}

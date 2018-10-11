@@ -1,0 +1,48 @@
+/var/log/nagios/check_snmp_*.log {
+    missingok
+    notifempty
+    daily
+    compress
+    delaycompress
+    rotate 10
+}
+/var/log/nagios/check_group_*.log {
+    missingok
+    notifempty
+    daily
+    compress
+    delaycompress
+    rotate 10
+}
+/var/log/nagios/nagiosrest.log {
+    missingok
+    notifempty
+    daily
+    compress
+    delaycompress
+    rotate 10
+}
+/var/log/nagios/notify_cloudify.log {
+    missingok
+    notifempty
+    daily
+    compress
+    delaycompress
+    rotate 10
+}
+/var/log/nagios/cloudify_nagios_snmp_trap_handler.log {
+    missingok
+    notifempty
+    daily
+    compress
+    delaycompress
+    rotate 10
+}
+/var/log/nagios/check_snmptrap_checks.log {
+    missingok
+    notifempty
+    daily
+    compress
+    delaycompress
+    rotate 10
+}

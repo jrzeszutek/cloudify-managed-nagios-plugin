@@ -1,0 +1,7 @@
+define host{
+  use target_type:{{target_type}}
+  host_name {{instance_id}}
+  alias {{instance_id}} from {{deployment}} for {{tenant}}
+  address {{instance_ip}}
+  hostgroups target_type_instances:{{target_type}},target_type:{{target_type}},tenant:{{tenant}}/deployment:{{deployment}},tenant:{{tenant}},tenant:{{tenant}}/target_type:{{target_type}}
+}

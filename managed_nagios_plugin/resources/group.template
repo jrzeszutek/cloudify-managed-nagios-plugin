@@ -1,0 +1,6 @@
+define host{
+  use pseudo-host
+  host_name tenant:{{tenant}}/group_type:{{group_type}}
+  alias Instances of {{group_name}}
+  hostgroups tenant:{{tenant}},group_type:{{group_type}}
+}

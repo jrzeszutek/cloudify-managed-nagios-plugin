@@ -1,0 +1,11 @@
+define service{
+  use generic-service
+  hostgroup_name target_type_instances:{{target_type}}
+  service_description {{target_type}}_instances:{{check_description}}
+  check_command check_snmp_value!{{target_type}}!{{snmp_oid}}!{{low_warning_threshold}}!{{low_critical_threshold}}!{{high_warning_threshold}}!{{high_critical_threshold}}!{{rate}}
+  max_check_attempts {{max_check_retries + 1}}
+  check_interval {{check_interval}}
+  retry_interval {{retry_interval}}
+  notification_interval {{notification_interval}}
+  contacts automation
+}

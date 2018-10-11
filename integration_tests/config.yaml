@@ -1,0 +1,25 @@
+# All entries without a value filled in must be completed
+
+floating_network_id:
+# The image must be a centos 7 image ID
+image:
+# The flavor must be a flavor ID
+flavor:
+management_network_name:
+
+# The private key path is the path to the private key for key_name key on openstack
+key_name:
+private_key_path:
+
+# Openstack connection parameters. The URL should probably look something like: https://openstack-api.example:5000/v3
+keystone_url:
+keystone_username:
+keystone_password:
+keystone_tenant_name:
+region:
+
+# Cloudify manager information. SSL will be used if a certificate path is supplied.
+cloudify_manager_username:
+cloudify_manager_password:
+cloudify_address:
+cloudify_certificate: null

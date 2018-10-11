@@ -1,0 +1,31 @@
+### Preparation
+# See README for necessary preparation steps.
+# It is recommended that each set of examples be run only after cleaning up any previous examples.
+
+### Health check and reaction examples
+# All examples in this section require a deployed nagios server
+# This can be accomplished using:
+helper_scripts/deploy_nagios values
+# All examples also use the basevalue blueprint:
+cfy install -b basevalue -d basevalue -i snmptest-blueprint-inputs.yaml blueprints/basevalue.yaml
+# Cleaning up:
+cfy uninstall basevalue
+helper_scripts/remove_nagios
+
+
+#### 1 Healing node on exceeded threshold
+# This demonstrates a node being healed when a monitored value is exceeded
+# We'll make the test value that is being retrieved exceed the value
+ssh -A -o StrictHostKeyChecking=no centos@$(cfy deployment outputs nagios | grep -A1 "External " | grep Value | awk '{ print $2 }') ssh -o StrictHostKeyChecking=no centos@$(cfy node-instances get $(cfy node-instances list | grep basevalue | head -n1 | awk '{ print $2 }') | grep ip: | awk '{ print $2 }') echo 42 '">"' /tmp/cloudifytestinteger
+# And confirm that the heal workflow triggers- this should happen within a few seconds
+for i in {1..60}; do if ! cfy executions list | grep heal | grep started | grep basevalue ; then sleep 2; else break; fi; done; cfy events list --tail -e $(cfy executions list | grep heal | grep started | awk '{ print $2 }')
+
+
+#### 2 Healing node on exceeded rate threshold
+# This demonstrates a node being healed when a monitored rate is exceeded
+# We'll make the rate increase beyond the critical threshold:
+ssh -A -o StrictHostKeyChecking=no centos@$(cfy deployment outputs nagios | grep -A1 "External " | grep Value | awk '{ print $2 }') ssh -o StrictHostKeyChecking=no centos@$(cfy node-instances get $(cfy node-instances list | grep basevalue | head -n1 | awk '{ print $2 }') | grep ip: | awk '{ print $2 }') echo $(date +%s):10 '">"' /tmp/cloudifytestcounter
+# And confirm that the heal workflow triggers- this should happen within ~30 seconds
+for i in {1..60}; do if ! cfy executions list | grep heal | grep started | grep basevalue ; then sleep 2; else break; fi; done; cfy events list --tail -e $(cfy executions list | grep heal | grep started | awk '{ print $2 }')
+
+# Don't forget to run the nagios cleanup before you try another example

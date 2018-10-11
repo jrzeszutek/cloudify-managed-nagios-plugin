@@ -1,0 +1,322 @@
+#! /usr/bin/env python
+import json
+import os
+import re
+import sys
+
+import logging_utils
+import nagios_utils
+import snmp_utils
+
+SNMP_TRAP_OID = '.1.3.6.1.6.3.1.1.4.1.0'
+TRAP_RECEIVED_PREFIX = 'SNMPTRAP {oid}: '
+TRAP_CONFIG_PATH = '/etc/nagios/objects/snmp_traps/{oid}.json'
+REACTION_CONFIG_PATH = (
+    '/etc/nagios/objects/target_types/{target_type}.json'
+)
+
+
+def get_address_from_message(connection_details):
+    # Structure expected to be: UDP: [192.0.2.26]:58628->[192.0.2.214]:162
+    # We want the source (192.0.2.26 in this case)
+    return connection_details.split(']')[0].split('[')[1]
+
+
+def determine_action(oid, oid_lookup, logger):
+    config_path = TRAP_CONFIG_PATH.format(oid=oid)
+    logger.debug('Attempting to find action configuration in: {path}'.format(
+        path=config_path,
+    ))
+
+    if not os.path.isfile(config_path):
+        logger.warn('Action configuration path not found. '
+                    'This trap type is unknown.')
+        return None
+
+    with open(config_path) as config_handle:
+        try:
+            action = json.loads(config_handle.read())
+        except ValueError:
+            logger.exception(
+                'Could not parse JSON. File may be empty?'
+            )
+            raise
+
+    if 'instance' in action:
+        logger.debug('Loading instance details')
+        action['instance']['oid'] = oid_lookup.get(action['instance']['oid'])
+        action['instance']['finder'] = re.compile(
+            action['instance']['finder']
+        )
+
+    if 'oid_for_message' in action:
+        logger.debug('Loading oid_for_message')
+        action['oid_for_message'] = oid_lookup.get(action['oid_for_message'])
+
+    logger.debug('Action found: {action}'.format(action=action))
+
+    return action
+
+
+class MonitoredHostNotFoundError(Exception):
+    pass
+
+
+def read_raw_trap(handle, logger):
+    logger.debug('Reading host')
+    host = handle.readline().strip()
+    logger.debug('Reading connection details')
+    message_connection_details = handle.readline().strip()
+
+    logger.debug('Received trap from {host} with details: {details}'.format(
+        host=host,
+        details=message_connection_details,
+    ))
+
+    raw_details = []
+    for line in handle.readlines():
+        logger.debug('Trap has extra details: {details}'.format(details=line))
+        oid, val = line.strip().split(' ', 1)
+        raw_details.append({
+            'raw_oid': oid,
+            'value': val,
+        })
+
+    return host, message_connection_details, raw_details
+
+
+def normalise_oids_and_get_trap_value(raw_details, oid_lookup, logger):
+    logger.debug('Pre-seeding OID lookup data')
+    # Look up as many oids with the first call as possible to avoid multiple
+    # subprocess calls
+    oid_lookup.get([SNMP_TRAP_OID] + [item['raw_oid'] for item in raw_details])
+
+    trap_value = None
+    details = {}
+    for item in raw_details:
+        raw_oid = item['raw_oid']
+        oid = oid_lookup.get(raw_oid)
+        logger.debug('OID {oid} has {value}'.format(
+            oid=oid,
+            value=item['value'],
+        ))
+        details[oid] = item['value']
+        if oid == oid_lookup.get(SNMP_TRAP_OID):
+            logger.debug('Looking up trap identity')
+            trap_value = oid_lookup.get(item['value'])
+            logger.debug('Trap identity found: {identity}'.format(
+                identity=trap_value,
+            ))
+
+    return trap_value, details
+
+
+def find_target_instance(action, details, message_source, logger):
+    logger.info('Getting action details')
+    name = None
+    address = None
+
+    logger.debug('Checking details finder')
+    details_finder = action.get('instance', {}).get('finder')
+    if details_finder:
+        logger.debug('Details finder found, applying...')
+
+        oid = action['instance']['oid']
+        if oid not in details:
+            message = (
+                'OID {oid} not found in trap details: {details}'.format(
+                    oid=oid,
+                    details=details,
+                )
+            )
+            logger.error(message)
+            raise MonitoredHostNotFoundError(message)
+
+        result = details_finder.match(details[oid])
+        logger.debug('Details finder found: {result}'.format(
+            result=result,
+        ))
+        if result:
+            result = result.groupdict()
+            name = result.get('name')
+            address = result.get('address')
+        else:
+            message = (
+                'Could not find name or address from "{value}" using '
+                'regex "{pattern}"'.format(
+                    value=details[action['instance']['oid']],
+                    pattern=details_finder.pattern,
+                )
+            )
+            logger.error(message)
+            raise MonitoredHostNotFoundError(message)
+    else:
+        logger.debug('Details finder not found')
+
+    if not name and not address:
+        logger.debug('Attempting to get address from message')
+        address = message_source
+
+    if not name:
+        logger.debug(
+            'Address found, attempting to look up name from nagios'
+        )
+        name = nagios_utils.get_host_name_from_address(address)
+        if name is None:
+            message = 'No host found with address {address}'.format(
+                address=address,
+            )
+            logger.error(message)
+            raise MonitoredHostNotFoundError(message)
+
+    return name
+
+
+def determine_reaction(target_type, trap_value, logger):
+    reaction = None
+    reaction_path = REACTION_CONFIG_PATH.format(
+        target_type=target_type,
+        oid=trap_value,
+    )
+    logger.debug('Looking up reaction from {path}'.format(
+        path=reaction_path,
+    ))
+    if os.path.isfile(reaction_path):
+        logger.debug('Loading reaction config...')
+        with open(reaction_path) as reaction_handle:
+            try:
+                full_reaction_config = json.load(reaction_handle)
+            except ValueError:
+                logger.exception(
+                    'Could not parse JSON. File may be empty?'
+                )
+                raise
+        reaction = full_reaction_config['traps'].get(trap_value)
+        logger.debug('Reaction config is: {reaction}'.format(
+            reaction=reaction,
+        ))
+    else:
+        logger.warn('Reaction config not found')
+
+    return reaction
+
+
+def generate_check_message(trap_value, details, action, logger):
+    message = TRAP_RECEIVED_PREFIX.format(oid=trap_value)
+    if action.get('oid_for_message'):
+        logger.debug('Retrieving message from trap')
+        message += details[action['oid_for_message']]
+    else:
+        message += 'No message OID defined. Trap was: {oid}'.format(
+            oid=trap_value,
+        )
+    logger.debug('Check output will be: {output}'.format(
+        output=message,
+    ))
+    return message
+
+
+def get_check_name(target_type, trap_value, logger):
+    trap_check_name = (
+        '{target_type}_instances:SNMPTRAP {oid}'.format(
+            target_type=target_type,
+            oid=trap_value,
+        )
+    )
+    logger.debug('Check name for trap is: {check}'.format(
+        check=trap_check_name,
+    ))
+    return trap_check_name
+
+
+def update_check_state(message, trap_check_name, instance, logger):
+    exit_status = None
+
+    nagios_status_dict = nagios_utils.get_nagios_status()
+    logger.debug('Loaded current nagios status')
+    services = nagios_utils.get_services_for_host(instance,
+                                                  nagios_status_dict)
+    logger.debug('Found {num} services for host {host}'.format(
+        host=instance,
+        num=len(services),
+    ))
+    for service in services:
+        logger.debug('Considering service {name}'.format(
+            name=service['service_description'],
+        ))
+        if service['service_description'] == trap_check_name:
+            logger.debug('Correct service found')
+            if service['current_state'] != '0':
+                logger.warn(
+                    'Reaction already in progress for this check'
+                )
+                exit_status = 1
+            else:
+                logger.debug('Submitting check result')
+                nagios_utils.submit_passive_check_result(
+                    host=instance,
+                    service=trap_check_name,
+                    status='2',
+                    output=message,
+                )
+                logger.debug('Check result submitted')
+                exit_status = 0
+
+    if exit_status is None:
+        logger.warn(
+            'Service was not found. Host may be in the process of being '
+            'deleted?'
+        )
+        exit_status = 3
+
+    return exit_status
+
+
+def main():
+    logger = logging_utils.Logger('cloudify_nagios_snmp_trap_handler')
+
+    oid_lookup = snmp_utils.OIDLookup()
+
+    host, message_connection_details, raw_details = read_raw_trap(sys.stdin,
+                                                                  logger)
+    message_source = get_address_from_message(message_connection_details)
+
+    trap_value, details = normalise_oids_and_get_trap_value(raw_details,
+                                                            oid_lookup,
+                                                            logger)
+
+    logger.info('Received trap {trap} from {source}'.format(
+        trap=trap_value,
+        source=message_source,
+    ))
+
+    action = determine_action(trap_value, oid_lookup, logger)
+
+    if action is not None:
+        instance = find_target_instance(action, details, message_source,
+                                        logger)
+
+        logger.debug('Looking up target type')
+        target_type = nagios_utils.get_target_type_for_instance(instance)
+        logger.debug('Target type is: {target_type}'.format(
+            target_type=target_type,
+        ))
+
+        reaction = determine_reaction(target_type, trap_value, logger)
+
+        if reaction:
+            logger.info('Reaction defined, updating check state')
+            message = generate_check_message(trap_value, details, action,
+                                             logger)
+            check_name = get_check_name(target_type, trap_value, logger)
+            exit_status = update_check_state(message, check_name, instance,
+                                             logger)
+            sys.exit(exit_status)
+        else:
+            logger.info('No reaction defined')
+    else:
+        logger.info('No action required')
+
+
+if __name__ == '__main__':
+    main()

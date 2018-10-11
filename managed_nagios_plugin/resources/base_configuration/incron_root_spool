@@ -1,0 +1,1 @@
+{{homedir}}/.cfy-agent IN_CLOSE_WRITE /usr/local/bin/update_notify_cloudify_configuration {{homedir}}/.cfy-agent/$#

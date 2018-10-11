@@ -1,0 +1,22 @@
+#! /usr/bin/env bash
+set -e
+NAGIOS_TYPE=${1}
+
+cfy blueprints upload -b nagios blueprints/nagios-${NAGIOS_TYPE}.yaml
+cfy deployments create -b nagios -i nagios-blueprint-inputs.yaml nagios
+cfy executions start -d nagios install
+nagios_address=$(cfy deployments outputs nagios | grep Value | grep http | awk '{ print $2 }')
+internal_nagios_address=$(cfy deployments outputs nagios | grep -A1 Internal | grep Value | awk '{ print $2 }')
+nagios_web_username=$(cfy deployments outputs nagios | grep -A1 Username | grep Value | awk '{ print $2 }')
+nagios_web_password=$(cfy deployments outputs nagios | grep -A1 Password | grep Value | awk '{ print $2 }')
+
+echo "Creating secrets for nagiosrest monitoring plugin"
+# We want just the IP of the server with nagiosrest
+cfy secrets create -s ${internal_nagios_address} nagiosrest_address
+cfy secrets create -s ${nagios_web_username} nagiosrest_user
+cfy secrets create -s ${nagios_web_password} nagiosrest_pass
+cfy secrets create -f <(cfy deployments outputs nagios | awk '/BEGIN CERTIFICATE/,/END CERTIFICATE/' | sed -r 's/.*Value:[^-]*//') nagiosrest_certificate
+echo ""
+echo "You should now be able to log in to nagios on your prepared nagios VM under ${nagios_address}"
+echo "The username and password (as specified in the blueprint) are '${nagios_web_username}' and '${nagios_web_password}', respectively."
+echo "The certificate is available under the nagiosrest_certificate."

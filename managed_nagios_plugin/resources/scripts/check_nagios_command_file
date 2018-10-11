@@ -1,0 +1,96 @@
+#! /usr/bin/env python
+from __future__ import print_function
+
+import grp
+import os
+import pwd
+from stat import (
+    S_IFIFO,
+    S_IMODE,
+)
+import sys
+
+import selinux
+
+from nagios_plugin_utils import (
+    STATUS_OK,
+    STATUS_WARNING,
+    STATUS_CRITICAL,
+)
+from nagios_utils import NAGIOS_EXTERNAL_COMMAND_FILE as COMMAND_FILE
+
+
+EXPECTED_OWNER = 'nagios'
+EXPECTED_GROUP = 'nagios'
+EXPECTED_MODE = '660'
+EXPECTED_CONTEXT = 'system_u:object_r:nagios_spool_t:s0'
+
+
+def check_file_exists(target_file):
+    if not os.path.exists(target_file):
+        print('External command file does not exist. '
+              'Reactions and SNMP traps will not work correctly!')
+        sys.exit(STATUS_CRITICAL)
+
+
+def check_file_properties(target_file):
+    file_props = os.stat(target_file)
+    problems = []
+    critical = False
+
+    # Check the file is a pipe
+    if not (file_props.st_mode & S_IFIFO) == S_IFIFO:
+        problems.append('External command file is not a pipe!')
+        critical = True
+
+    # The following checks /may/ still allow commands to execute
+    # Check the file has user and group read-write set, and nothing else
+    if S_IMODE(file_props.st_mode) ^ int(EXPECTED_MODE, 8):
+        problems.append(
+            'External command file permissions should be {mode}.'.format(
+                mode=EXPECTED_MODE,
+            )
+        )
+
+    if pwd.getpwuid(file_props.st_uid).pw_name != EXPECTED_OWNER:
+        problems.append(
+            'External command file should be owned by {owner}.'.format(
+                owner=EXPECTED_OWNER,
+            )
+        )
+
+    if grp.getgrgid(file_props.st_gid).gr_name != EXPECTED_GROUP:
+        problems.append(
+            'External command file group should be {group}.'.format(
+                group=EXPECTED_GROUP
+            )
+        )
+
+    if selinux.is_selinux_enabled():
+        if selinux.getfilecon(target_file)[1] != EXPECTED_CONTEXT:
+            problems.append('SELinux context should be {expected}'.format(
+                expected=EXPECTED_CONTEXT,
+            ))
+
+    if critical:
+        problems.insert(0,
+                        'Reactions and SNMP traps will not work correctly!')
+    elif problems:
+        problems.insert(0,
+                        'Reactions and SNMP traps may not work correctly!')
+
+    if problems:
+        problems = ' '.join(problems)
+        print(problems)
+        if critical:
+            sys.exit(STATUS_CRITICAL)
+        else:
+            sys.exit(STATUS_WARNING)
+    else:
+        print('Command file is healthy.')
+        sys.exit(STATUS_OK)
+
+
+if __name__ == '__main__':
+    check_file_exists(COMMAND_FILE)
+    check_file_properties(COMMAND_FILE)

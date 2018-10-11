@@ -1,0 +1,1 @@
+../../managed_nagios_plugin/resources/scripts/notify_cloudify

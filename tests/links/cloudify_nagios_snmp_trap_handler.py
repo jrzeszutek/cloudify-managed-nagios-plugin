@@ -1,0 +1,1 @@
+../../managed_nagios_plugin/resources/scripts/cloudify_nagios_snmp_trap_handler

@@ -1,0 +1,196 @@
+#! /usr/bin/env python
+from __future__ import print_function
+
+import re
+import sys
+
+import logging_utils
+from nagios_utils import (
+    get_host_address,
+    get_node_instances,
+)
+from nagios_plugin_utils import (
+    check_thresholds_and_exit,
+    get_argument_parser,
+    get_floats_from_result,
+    get_node_rate_storage_path,
+    run_check,
+    STATUS_UNKNOWN,
+    store_value_and_calculate_rate,
+    validate_and_structure_thresholds,
+)
+
+
+def calculate_mean(values):
+    return sum(values) / len(values)
+
+
+def calculate_sum(values):
+    return sum(values)
+
+
+APPROACHES = {
+    'arithmetic_mean': calculate_mean,
+    'sum': calculate_sum,
+}
+
+
+def get_instance_addresses(node, logger):
+    details_finder = re.compile(
+        '^tenant:(?P<tenant>[^/]+)/'
+        'deployment:(?P<deployment>[^/]+)/'
+        'node:(?P<node>[^/]+)$'
+    )
+    logger.debug('Determining node details from node {name}'.format(
+        name=node,
+    ))
+
+    details = details_finder.match(node)
+    logger.debug('Node details result was: {res}'.format(res=details))
+    if details:
+        details = details.groupdict()
+    else:
+        logger.error('Node name could not be parsed correctly')
+        print('Could not parse node name: "{node}"'.format(
+            node=node,
+        ))
+        sys.exit(STATUS_UNKNOWN)
+
+    logger.debug('Getting node instances with details: {details}'.format(
+        details=details,
+    ))
+    return get_node_instances(logger=logger, **details)
+
+
+def generate_perfdata(check_identifier, value):
+    return ' {check_identifier}={value}'.format(
+        check_identifier=check_identifier,
+        value=value,
+    )
+
+
+def generate_check_identifier(approach, oids):
+    return '{approach}({oids})'.format(
+        approach=approach,
+        oids=oids,
+    )
+
+
+def main(args):
+    logger = logging_utils.Logger('check_snmp_aggregate')
+
+    parser = get_argument_parser(
+        description='Wrapper to check all instances belonging to a node',
+    )
+
+    parser.add_argument(
+        '-n', '--node',
+        help=(
+            "Name of node pseudo-host configured in nagios to check all "
+            "instances of."
+        ),
+        required=True,
+    )
+    parser.add_argument(
+        '-o', '--oids',
+        help=(
+            "Comma separated list of OIDs/SNMP variables to query."
+        ),
+        required=True,
+    )
+    parser.add_argument(
+        '-a', '--approach',
+        help=(
+            "Approach to take when aggregating results."
+        ),
+        choices=APPROACHES.keys(),
+        required=True,
+    )
+    parser.add_argument(
+        '-u', '--unknown',
+        help=(
+            "Action taken for unknown (e.g. unreachable) instances."
+        ),
+        choices=('ignore', 'abort'),
+        required=True,
+    )
+
+    args = parser.parse_args(args)
+    logger.debug('Called with args: {args}'.format(args=args))
+
+    logger.info('Validating thresholds')
+    thresholds = validate_and_structure_thresholds(
+        args.low_warning,
+        args.low_critical,
+        args.high_warning,
+        args.high_critical,
+        logger,
+    )
+    logger.debug('Thresholds are: {thresholds}'.format(thresholds=thresholds))
+
+    ignore_unknown = args.unknown == 'ignore'
+    logger.info('Unknown results for instances {will} be ignored'.format(
+        will='will' if ignore_unknown else 'will not',
+    ))
+
+    instance_addresses = [
+        get_host_address(host_name, logger)
+        for host_name in get_instance_addresses(args.node, logger)
+    ]
+    logger.debug('Found addresses: {addresses}'.format(
+        addresses=instance_addresses,
+    ))
+    # Filter afterwards to avoid doing multiple scans of entire nagios config
+    instance_addresses = [
+        addr for addr in instance_addresses if addr is not None
+    ]
+    logger.debug('Filtered addresses: {addresses}'.format(
+        addresses=instance_addresses,
+    ))
+
+    # First collect the results, then convert them
+    # This is to make rate checks only fail on the first run, rather than
+    # failing once for every instance that the check is checking
+    logger.info('Collecting results')
+    all_values = []
+    for address in instance_addresses:
+        logger.debug('Checking {addr}'.format(addr=address))
+        result = run_check(__file__, args.target_type, address,
+                           args.oids, logger, ignore_unknown=ignore_unknown)
+        if result is not None:
+            all_values.extend(get_floats_from_result(result))
+    if len(all_values) == 0:
+        logger.error('No values were retrieved')
+        print('No values could be retrieved.')
+        sys.exit(STATUS_UNKNOWN)
+    logger.info('Collected results were: {res}'.format(res=all_values))
+
+    logger.debug('Calculating aggregate using approach: {approach}'.format(
+        approach=args.approach,
+    ))
+    value = APPROACHES[args.approach](all_values)
+    logger.info('Aggregate value was {val}'.format(val=value))
+
+    check_identifier = generate_check_identifier(args.approach, args.oids)
+    logger.debug('Check identifier is: {ci}'.format(ci=check_identifier))
+    if args.rate:
+        logger.info('Calculating rate')
+        path = get_node_rate_storage_path(
+            args.node,
+            check_identifier,
+        )
+        logger.debug('Rate storage path is: {path}'.format(path=path))
+        value = store_value_and_calculate_rate(logger, value, path)
+        logger.debug('Rate calculated was: {value}'.format(value=value))
+
+    perfdata = generate_perfdata(check_identifier, value)
+    logger.debug('Result perfdata was: {perf}'.format(
+        perf=perfdata,
+    ))
+
+    logger.info('Checking thresholds and exiting')
+    check_thresholds_and_exit(value, thresholds, perfdata, args.rate)
+
+
+if __name__ == '__main__':
+    main(sys.argv[1:])

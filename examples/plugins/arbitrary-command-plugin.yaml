@@ -1,0 +1,24 @@
+plugins:
+  arbitrary_commands:
+    executor: host_agent
+    package_name: arbitrary-command-plugin
+    package_version: 0.1.2
+    source: null
+    install: true
+
+node_types:
+  cloudify.arbitrary_commands.nodes.executor:
+    derived_from: cloudify.nodes.Root
+    interfaces:
+      cloudify.interfaces.execute:
+        command:
+          implementation: arbitrary_commands.arbitrary_commands.command.run
+          inputs:
+            command:
+              description: >
+                The command to run on the remote system.
+                This will be run with shell=True.
+                Output will be put in the 'output' runtime property.
+                Return code will be put in the 'status' runtime property.
+                These properties will be overwritten with every new command.
+              default: ''

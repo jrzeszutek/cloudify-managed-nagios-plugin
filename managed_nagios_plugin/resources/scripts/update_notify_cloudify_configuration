@@ -1,0 +1,63 @@
+#! /usr/bin/env python
+import json
+import os
+import sys
+
+from utils import run
+
+NOTIFY_PLUGIN_CONFIG = "/etc/nagios/notify_plugin.cfg"
+NOTIFY_PLUGIN_CERT = "/etc/nagios/notify_plugin.crt"
+
+
+def get_required_config(source_config):
+    required_config = {}
+
+    for key in 'cluster', 'rest_host', 'rest_port':
+        required_config[key] = source_config.get(key)
+
+    return required_config
+
+
+def normalise_source_path(source_path):
+    source_dir, source_file = os.path.split(source_path)
+    if source_file.startswith('cluster-'):
+        # Read the appropriate file if given the cluster version
+        source_file = source_file[len('cluster-'):]
+    return os.path.join(source_dir, source_file)
+
+
+def save_config(config):
+    with open(NOTIFY_PLUGIN_CONFIG, 'w') as config_handle:
+        json.dump(
+            obj=config,
+            fp=config_handle,
+        )
+
+
+def copy_ssl_cert(config):
+    cert_path = config['local_rest_cert_file']
+    run(['cp', cert_path, NOTIFY_PLUGIN_CERT])
+
+
+def correct_permissions():
+    for path in NOTIFY_PLUGIN_CERT, NOTIFY_PLUGIN_CONFIG:
+        run(['chown', 'nagios.{{group}}', path])
+        run(['chmod', '440', path])
+
+
+def main(source_path):
+    source_path = normalise_source_path(source_path)
+
+    with open(source_path) as source_handle:
+        source_config = json.load(source_handle)
+
+    required_config = get_required_config(source_config)
+    save_config(required_config)
+
+    copy_ssl_cert(source_config)
+
+    correct_permissions()
+
+
+if __name__ == '__main__':
+    main(sys.argv[1])

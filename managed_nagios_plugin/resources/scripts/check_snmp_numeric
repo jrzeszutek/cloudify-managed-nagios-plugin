@@ -1,0 +1,88 @@
+#! /usr/bin/env python
+from __future__ import print_function
+
+import sys
+
+import logging_utils
+from nagios_plugin_utils import (
+    check_thresholds_and_exit,
+    get_argument_parser,
+    get_perfdata,
+    get_instance_rate_storage_path,
+    get_single_float_from_result,
+    run_check,
+    STATUS_UNKNOWN,
+    store_value_and_calculate_rate,
+    validate_and_structure_thresholds,
+)
+
+
+def main(args):
+    logger = logging_utils.Logger('check_snmp_numeric')
+
+    parser = get_argument_parser(
+        description='Wrapper for nagios check_snmp to support ranges.',
+    )
+
+    parser.add_argument(
+        '--hostname',
+        help=(
+            "Host name, IP Address, or unix socket (must be an absolute path)"
+        ),
+        required=True,
+    )
+    parser.add_argument(
+        '--oid',
+        help=(
+            "Object identifier or SNMP variable whose value you wish to "
+            "query"
+        ),
+        required=True,
+    )
+
+    args = parser.parse_args(args)
+    logger.debug('Called with args: {args}'.format(args=args))
+
+    logger.info('Validating thresholds')
+    thresholds = validate_and_structure_thresholds(
+        args.low_warning,
+        args.low_critical,
+        args.high_warning,
+        args.high_critical,
+        logger,
+    )
+    logger.debug('Thresholds are: {thresholds}'.format(thresholds=thresholds))
+
+    if ',' in args.oid:
+        logger.error('Numeric checks may only check one OID')
+        print('Only a single OID is supported for this check.')
+        sys.exit(STATUS_UNKNOWN)
+
+    logger.info('Inputs validated, running check.')
+    result = run_check(__file__, args.target_type, args.hostname, args.oid,
+                       logger)
+    logger.info('Check returned: {result}'.format(result=result))
+
+    # Keep any perfdata to pass through
+    perfdata = get_perfdata(result)
+    logger.debug('Result perfdata was: {perfdata}'.format(perfdata=perfdata))
+
+    value = get_single_float_from_result(result)
+    logger.debug('Parsed result value as: {value}'.format(value=value))
+
+    if args.rate:
+        logger.info('Calculating rate')
+        path = get_instance_rate_storage_path(
+            args.hostname,
+            args.oid,
+        )
+        logger.debug('Rate storage path is: {path}'.format(path=path))
+        value = store_value_and_calculate_rate(logger, value, path)
+        logger.debug('Rate calculated was: {value}'.format(value=value))
+
+    logger.info('Checking thresholds and exiting')
+    check_thresholds_and_exit(value, thresholds, perfdata, args.rate)
+
+
+if __name__ == '__main__':
+    main(sys.argv[1:])

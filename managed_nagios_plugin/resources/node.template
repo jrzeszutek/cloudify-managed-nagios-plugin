@@ -1,0 +1,6 @@
+define host{
+  use pseudo-host
+  host_name tenant:{{tenant}}/deployment:{{deployment}}/node:{{node_id}}
+  alias {{node_id}} from {{deployment}} for {{tenant}}
+  hostgroups target_type_nodes:{{target_type}},target_type:{{target_type}},tenant:{{tenant}}/deployment:{{deployment}},tenant:{{tenant}},tenant:{{tenant}}/target_type:{{target_type}}
+}

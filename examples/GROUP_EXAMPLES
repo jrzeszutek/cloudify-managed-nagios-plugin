@@ -1,0 +1,50 @@
+### Preparation
+# See README for necessary preparation steps.
+# It is recommended that each set of examples be run only after cleaning up any previous examples.
+
+### Health check and reaction examples
+# All examples in this section require a deployed nagios server
+# This can be accomplished using:
+helper_scripts/deploy_nagios groups
+# Cleaning up:
+helper_scripts/remove_nagios
+
+
+#### 1 Scaling down when threshold exceeded
+# This demonstrates scaling down nodes in a deployment when nodes in multiple deployments exceed a threshold as a group
+# Note that, while this example was chosen for ease of demonstration, scaling operations on group
+# and metagroup checks should generally be avoided, as unanticipated check results may cause runaway
+# scaling, resulting in too many or too few nodes for intended purposes. Group checks are better
+# suited to custom workflows, e.g. a custom workflow that creates a new application server cluster.
+# This example needs both basegroup blueprints
+cfy install -b basegroup1 -d basegroup1 -i snmptest-blueprint-inputs.yaml blueprints/basegroup1.yaml
+cfy install -b basegroup2 -d basegroup2 -i snmptest-blueprint-inputs.yaml blueprints/basegroup2.yaml
+# With the default test counter rate being ~0.5 and the default test integer being 0, the group check should currently be reporting ~2, and be in a warning state
+# We will cause the value to breach the threshold by increasing one node's integer report to 2 and rate
+# to 2.0, for a total group result of ~0.9+
+ssh -A -o StrictHostKeyChecking=no centos@$(cfy deployment outputs nagios | grep -A1 "External " | grep Value | awk '{ print $2 }') ssh -o StrictHostKeyChecking=no centos@$(cfy node-instances get $(cfy node-instances list | grep basegroup1 | head -n1 | awk '{ print $2 }') | grep ip: | awk '{ print $2 }') echo 2 '">"' /tmp/cloudifytestinteger
+ssh -A -o StrictHostKeyChecking=no centos@$(cfy deployment outputs nagios | grep -A1 "External " | grep Value | awk '{ print $2 }') ssh -o StrictHostKeyChecking=no centos@$(cfy node-instances get $(cfy node-instances list | grep basegroup1 | head -n1 | awk '{ print $2 }') | grep ip: | awk '{ print $2 }') echo $(date +%s):2.0 '">"' /tmp/cloudifytestcounter
+# And confirm that the scale workflow triggers- this should happen within a few seconds
+for i in {1..60}; do if ! cfy executions list | grep scale | grep started | grep basegroup1; then sleep 2; else break; fi; done; cfy events list --tail -e $(cfy executions list | grep scale | grep started | awk '{ print $2 }')
+# Cleaning up:
+cfy uninstall basegroup2
+cfy uninstall basegroup1
+
+
+#### 2 Scaling down when aggregated threshold across several groups is breached
+# This demonstrates scaling down nodes in a deployment when the aggregate of several group checks falls below a threshold.
+# Note that, while this example was chosen for ease of demonstration, scaling operations on group
+# and metagroup checks should generally be avoided, as unanticipated check results may cause runaway
+# scaling, resulting in too many or too few nodes for intended purposes. Group checks are better
+# suited to custom workflows, e.g. a custom workflow that creates a new application server cluster.
+# This example needs bot basemetagroup blueprints
+cfy install -b basemetagroup1 -d basemetagroup1 -i snmptest-blueprint-inputs.yaml blueprints/basemetagroup1.yaml
+cfy install -b basemetagroup2 -d basemetagroup2 -i snmptest-blueprint-inputs.yaml blueprints/basemetagroup2.yaml
+# We will now lower the rate on one of the deployed nodes. As there are three group checks, but only two are included,
+# we should see scaling down occur.
+ssh -A -o StrictHostKeyChecking=no centos@$(cfy deployment outputs nagios | grep -A1 "External " | grep Value | awk '{ print $2 }') ssh -o StrictHostKeyChecking=no centos@$(cfy node-instances get $(cfy node-instances list | grep basemetagroup1 | head -n1 | awk '{ print $2 }') | grep ip: | awk '{ print $2 }') echo $(date +%s):0.0 '">"' /tmp/cloudifytestcounter
+# And confirm that the scale workflow triggers- this should happen within a few seconds
+for i in {1..60}; do if ! cfy executions list | grep scale | grep started | grep basemetagroup1; then sleep 2; else break; fi; done; cfy events list --tail -e $(cfy executions list | grep scale | grep started | awk '{ print $2 }')
+# Cleaning up:
+cfy uninstall basemetagroup2
+cfy uninstall basemetagroup1

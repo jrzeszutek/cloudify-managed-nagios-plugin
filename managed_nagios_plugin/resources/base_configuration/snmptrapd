@@ -1,0 +1,2 @@
+authCommunity log,execute {{trap_community}}
+traphandle default /usr/lib64/nagios/plugins/cloudify_nagios_snmp_trap_handler

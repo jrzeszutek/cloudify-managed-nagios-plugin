@@ -1,0 +1,12 @@
+#! /usr/bin/env bash
+set -e
+
+echo "Removing secrets..."
+for secret in address user pass certificate; do
+   cfy secrets delete nagiosrest_${secret}
+done
+
+echo "Uninstalling nagios and removing deployment and blueprint..."
+cfy uninstall nagios
+
+echo "Nagios removed."

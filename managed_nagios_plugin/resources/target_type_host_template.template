@@ -1,0 +1,9 @@
+define host{
+  name target_type:{{target_type}}
+  use generic-host
+  check_command {{check_command}}
+  check_interval {{check_interval}}
+  retry_interval {{retry_interval}}
+  max_check_attempts {{max_check_retries + 1}}
+  register 0
+}

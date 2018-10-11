@@ -1,0 +1,11 @@
+OBJECT_OWNERSHIP = 'nagios.nagios'
+# Read only access for objects
+OBJECT_DIR_PERMISSIONS = '750'
+OBJECT_PERMISSIONS = '640'
+BASE_OBJECTS_DIR = '/etc/nagios/objects'
+TENANT_DEPLOYMENT_HOSTGROUP = 'tenant:{tenant}/deployment:{deployment}'
+RATE_BASE_PATH = '/var/spool/nagios'
+RATE_NODE_BASE_PATH = RATE_BASE_PATH + '/rates/nodes/{node}'
+RATE_INSTANCE_BASE_PATH = RATE_BASE_PATH + '/rates/instances/{instance}'
+RATE_NODE_PATH = RATE_NODE_BASE_PATH + '/{check}'
+RATE_INSTANCE_PATH = RATE_INSTANCE_BASE_PATH + '/{check}'

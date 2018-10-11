@@ -1,0 +1,16 @@
+:msg, startswith, "check_snmp_numeric(" /var/log/nagios/check_snmp_numeric.log
+& stop
+:msg, startswith, "check_snmp_aggregate(" /var/log/nagios/check_snmp_aggregate.log
+& stop
+:msg, startswith, "check_group_aggregate(" /var/log/nagios/check_group_aggregate.log
+& stop
+:msg, startswith, "check_group_meta_aggregate(" /var/log/nagios/check_group_meta_aggregate.log
+& stop
+:msg, startswith, "check_snmptrap_checks(" /var/log/nagios/check_snmptrap_checks.log
+& stop
+:msg, startswith, "nagiosrest(" /var/log/nagios/nagiosrest.log
+& stop
+:msg, startswith, "notify_cloudify(" /var/log/nagios/notify_cloudify.log
+& stop
+:msg, startswith, "cloudify_nagios_snmp_trap_handler(" /var/log/nagios/cloudify_nagios_snmp_trap_handler.log
+& stop

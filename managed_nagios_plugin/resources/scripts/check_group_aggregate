@@ -1,0 +1,196 @@
+#! /usr/bin/env python
+from __future__ import print_function
+
+import os
+import sys
+
+from constants import BASE_OBJECTS_DIR
+import logging_utils
+from nagios_utils import (
+    get_nagios_status,
+)
+from nagios_plugin_utils import (
+    check_thresholds_and_exit,
+    get_argument_parser,
+    STATUS_UNKNOWN,
+    validate_and_structure_thresholds,
+)
+
+
+def calculate_mean(values):
+    return sum(values) / len(values)
+
+
+def calculate_sum(values):
+    return sum(values)
+
+
+APPROACHES = {
+    'arithmetic_mean': calculate_mean,
+    'sum': calculate_sum,
+}
+
+
+def generate_perfdata(check_identifier, value):
+    return ' {check_identifier}={value}'.format(
+        check_identifier=check_identifier,
+        value=value,
+    )
+
+
+def generate_check_identifier(approach, group_type, group_instance):
+    return '{approach}({group_type}/{group_instance})'.format(
+        approach=approach,
+        group_type=group_type,
+        group_instance=group_instance,
+    )
+
+
+def main(args):
+    logger = logging_utils.Logger('check_group_aggregate')
+
+    parser = get_argument_parser(
+        description='Wrapper to check all instances belonging to a node',
+        group=True,
+        allow_rate=False,
+    )
+
+    parser.add_argument(
+        '--tenant',
+        help=(
+            "Name of tenant for this group instance."
+        ),
+        required=True,
+    )
+    parser.add_argument(
+        '--group-instance',
+        help=(
+            "Name of group instance to check."
+        ),
+        required=True,
+    )
+    parser.add_argument(
+        '-a', '--approach',
+        help=(
+            "Approach to take when aggregating results."
+        ),
+        choices=APPROACHES.keys(),
+        required=True,
+    )
+    parser.add_argument(
+        '-u', '--unknown',
+        help=(
+            "Action taken for unknown (e.g. unreachable) instances."
+        ),
+        choices=('ignore', 'abort'),
+        required=True,
+    )
+
+    args = parser.parse_args(args)
+    logger.debug('Called with args: {args}'.format(args=args))
+
+    logger.info('Validating thresholds')
+    thresholds = validate_and_structure_thresholds(
+        args.low_warning,
+        args.low_critical,
+        args.high_warning,
+        args.high_critical,
+        logger,
+    )
+    logger.debug('Thresholds are: {thresholds}'.format(thresholds=thresholds))
+
+    ignore_unknown = args.unknown == 'ignore'
+    logger.info('Unknown results for instances {will} be ignored'.format(
+        will='will' if ignore_unknown else 'will not',
+    ))
+
+    name_template = 'tenant:{tenant}/deployment:{deployment}/node:{node}'
+    group_path = (
+        '{base}/groups/members/{tenant}/{group_type}/{group_name}/'
+    ).format(
+        base=BASE_OBJECTS_DIR,
+        tenant=args.tenant,
+        group_type=args.group_type,
+        group_name=args.group_instance,
+    )
+    group_members = []
+    if not os.path.isdir(group_path):
+        message = 'There are no checks associated with this group'
+        logger.warn(message)
+        print(message)
+        sys.exit(STATUS_UNKNOWN)
+    for deployment in os.listdir(group_path):
+        deployment_dir = os.path.join(group_path, deployment)
+        for node in os.listdir(deployment_dir):
+            group_members.append(
+                name_template.format(
+                    tenant=args.tenant,
+                    deployment=deployment,
+                    node=node,
+                )
+            )
+
+    status = get_nagios_status()['servicestatus']
+    relevant_checks = [
+        item for item in status
+        if item['host_name'] in group_members
+    ]
+    all_values = []
+    for check in relevant_checks:
+        logger.debug('Found check: {check}'.format(check=check))
+        if check['current_state'] == '3' or not check['performance_data']:
+            if args.unknown == 'abort':
+                message = (
+                    'Current check state for {dep} - {chk} was unknown.'
+                ).format(
+                    dep=check['host_name'],
+                    chk=check['service_description'],
+                )
+                logger.error(message)
+                print(message)
+                sys.exit(STATUS_UNKNOWN)
+        else:
+            result = check['performance_data']
+            try:
+                all_values.append(float(result.split('=')[-1]))
+            except ValueError:
+                message = (
+                    'Could not parse result for {dep} - {chk}. '
+                    'Previous performance data was {data}'
+                ).format(
+                    dep=check['host_name'],
+                    chk=check['service_description'],
+                    data=check['performance_data'],
+                )
+                logger.error(message)
+                print(message)
+                sys.exit(STATUS_UNKNOWN)
+
+    if not all_values:
+        message = 'No results found for group checks.'
+        logger.warn(message)
+        print(message)
+        sys.exit(STATUS_UNKNOWN)
+
+    logger.debug('Calculating aggregate using approach: {approach}'.format(
+        approach=args.approach,
+    ))
+    value = APPROACHES[args.approach](all_values)
+    logger.info('Aggregate value was {val}'.format(val=value))
+
+    check_identifier = generate_check_identifier(args.approach,
+                                                 args.group_type,
+                                                 args.group_instance)
+    logger.debug('Check identifier is: {ci}'.format(ci=check_identifier))
+
+    perfdata = generate_perfdata(check_identifier, value)
+    logger.debug('Result perfdata was: {perf}'.format(
+        perf=perfdata,
+    ))
+
+    logger.info('Checking thresholds and exiting')
+    check_thresholds_and_exit(value, thresholds, perfdata, False, True)
+
+
+if __name__ == '__main__':
+    main(sys.argv[1:])
