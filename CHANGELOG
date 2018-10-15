@@ -1,0 +1,2 @@
+1.0.1 - Fix permissions of auto-generated SSL key file to work around openssl.
+1.0.0 - First release, supporting value checks, aggregate value checks, traps, group checks, and meta group checks.

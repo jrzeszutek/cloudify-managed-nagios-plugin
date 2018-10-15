@@ -23,6 +23,9 @@ CONFIG_SECRETS = (
     'cloudify_manager_username',
     'cloudify_manager_password',
 )
+DEFAULT_MANAGED_NAGIOS_VERSION = "1.0.1"
+DEFAULT_NAGIOSREST_VERSION = "1.0.0"
+DEFAULT_OPENSTACK_VERSION = "2.0.1"
 
 
 def get_rest_client(address, username, password, tenant, cert_path=None):
@@ -169,10 +172,12 @@ def wait_for_execution(execution_id, client, poll_interval=3):
             )
 
 
-def upload_required_plugins(client,
-                            managed_nagios_version='1.0.0',
-                            nagiosrest_version='1.0.0',
-                            openstack_version='2.0.1'):
+def upload_required_plugins(
+    client,
+    managed_nagios_version=DEFAULT_MANAGED_NAGIOS_VERSION,
+    nagiosrest_version=DEFAULT_NAGIOSREST_VERSION,
+    openstack_version=DEFAULT_OPENSTACK_VERSION,
+):
     plugin_wagon = (
         'http://repository.cloudifysource.org/cloudify/wagons/{plugin}/'
         '{version}/{plugin_underscore}-{version}-py27-none-linux_x86_64-'

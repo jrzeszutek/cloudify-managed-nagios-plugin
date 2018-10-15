@@ -294,6 +294,13 @@ def generate_certs(key_path, cert_path, logger):
         },
     )
 
+    # We precreate the key with appropriately restrictive permissions because
+    # openssl will otherwise happily expose the key to everyone on the system
+    # if the default umask does
+    run(['touch', key_path], sudo=True)
+    run(['chown', 'root.root', key_path], sudo=True)
+    run(['chmod', '400', key_path], sudo=True)
+
     run(['openssl', 'req', '-x509', '-newkey', 'rsa:2048',
          '-keyout', key_path, '-out', cert_path,
          '-days', '36500', '-batch', '-nodes', '-subj',

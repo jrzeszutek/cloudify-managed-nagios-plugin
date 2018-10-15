@@ -14,7 +14,7 @@ def get_resources():
 
 setup(
     name='cloudify-managed-nagios-plugin',
-    version='1.0.0',
+    version='1.0.1',
     packages=[
         'managed_nagios_plugin',
         'managed_nagios_plugin.check',
