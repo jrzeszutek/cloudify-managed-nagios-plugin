@@ -4,7 +4,7 @@ echo "Removing existing plugins (where applicable)..."
 for plugin in $(cfy plugins list | grep -E '(managed-nagios|nagiosrest|openstack)' | awk '{ print $2 }'); do
     cfy plugins delete ${plugin}
 done
-MANAGED_NAGIOS_PLUGIN_VERSION=1.0.1
+MANAGED_NAGIOS_PLUGIN_VERSION=1.0.2
 NAGIOSREST_PLUGIN_VERSION=1.0.0
 cfy plugins upload -y http://www.getcloudify.org/spec/managed-nagios-plugin/${MANAGED_NAGIOS_PLUGIN_VERSION}/plugin.yaml http://repository.cloudifysource.org/cloudify/wagons/cloudify-managed-nagios-plugin/${MANAGED_NAGIOS_PLUGIN_VERSION}/cloudify_managed_nagios_plugin-${MANAGED_NAGIOS_PLUGIN_VERSION}-py27-none-linux_x86_64-centos-Core.wgn
 cfy plugins upload -y http://www.getcloudify.org/spec/nagiosrest-plugin/${NAGIOSREST_PLUGIN_VERSION}/plugin.yaml http://repository.cloudifysource.org/cloudify/wagons/cloudify-nagiosrest-plugin/${NAGIOSREST_PLUGIN_VERSION}/cloudify_nagiosrest_plugin-${NAGIOSREST_PLUGIN_VERSION}-py27-none-linux_x86_64-centos-Core.wgn

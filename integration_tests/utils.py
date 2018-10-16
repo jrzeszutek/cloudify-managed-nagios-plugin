@@ -23,7 +23,7 @@ CONFIG_SECRETS = (
     'cloudify_manager_username',
     'cloudify_manager_password',
 )
-DEFAULT_MANAGED_NAGIOS_VERSION = "1.0.1"
+DEFAULT_MANAGED_NAGIOS_VERSION = "1.0.2"
 DEFAULT_NAGIOSREST_VERSION = "1.0.0"
 DEFAULT_OPENSTACK_VERSION = "2.0.1"
 
