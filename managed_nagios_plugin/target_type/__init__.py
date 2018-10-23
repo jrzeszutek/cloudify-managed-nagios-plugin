@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 
@@ -19,16 +20,24 @@ oid_lookup = OIDLookup()
 
 
 def get_target_type_configuration_destination(name):
-    return 'target_types/{name}.cfg'.format(name=name)
+    return 'target_types/{name}.cfg'.format(
+        name=hashlib.md5(name).hexdigest(),
+    )
 
 
 def get_target_type_host_template_destination(name):
-    return 'templates/{name}.cfg'.format(name=name)
+    return 'templates/{name}.cfg'.format(
+        name=hashlib.md5(name).hexdigest(),
+    )
 
 
 def get_reaction_configuration_destination(name):
-    return os.path.join(BASE_OBJECTS_DIR,
-                        'target_types/{name}.json'.format(name=name))
+    return os.path.join(
+        BASE_OBJECTS_DIR,
+        'target_types/{name}.json'.format(
+            name=hashlib.md5(name).hexdigest(),
+        )
+    )
 
 
 def create_target_type(logger, name, description, check_relationships,
@@ -221,5 +230,6 @@ class _FakeFile(object):
 
 def get_connection_config_location(target_type):
     return os.path.join(
-        BASE_OBJECTS_DIR, 'target_types', target_type + '.ini',
+        BASE_OBJECTS_DIR, 'target_types',
+        hashlib.md5(target_type).hexdigest() + '.ini',
     )

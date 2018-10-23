@@ -1,3 +1,5 @@
+import hashlib
+
 import pytest
 
 import tests.links.cloudify_nagios_snmp_trap_handler as snmp_trap_handler
@@ -20,7 +22,9 @@ def test_missing_action():
 
     assert result is None
 
-    expected_path = CONF_PATH.format(target_type=target_type)
+    expected_path = CONF_PATH.format(
+        target_type=hashlib.md5(target_type).hexdigest(),
+    )
     assert logger.string_appears_in('debug', expected_path)
 
     assert 'not found' in logger.messages['warn'][-1]
@@ -38,7 +42,9 @@ def test_empty_action():
             logger=logger,
         )
 
-    expected_path = CONF_PATH.format(target_type=target_type)
+    expected_path = CONF_PATH.format(
+        target_type=hashlib.md5(target_type).hexdigest(),
+    )
     assert logger.string_appears_in('debug', expected_path)
 
     assert 'not' in logger.messages['exception'][-1]
@@ -57,7 +63,9 @@ def test_reaction_found():
         logger=logger,
     )
 
-    expected_path = CONF_PATH.format(target_type=target_type)
+    expected_path = CONF_PATH.format(
+        target_type=hashlib.md5(target_type).hexdigest(),
+    )
     assert logger.string_appears_in('debug', expected_path)
 
     assert logger.string_appears_in('debug', 'loading reaction')
@@ -76,7 +84,9 @@ def test_no_reaction_found():
         logger=logger,
     )
 
-    expected_path = CONF_PATH.format(target_type=target_type)
+    expected_path = CONF_PATH.format(
+        target_type=hashlib.md5(target_type).hexdigest(),
+    )
     assert logger.string_appears_in('debug', expected_path)
 
     assert logger.string_appears_in('debug', 'loading reaction')
@@ -96,7 +106,9 @@ def test_missing_traps():
             logger=logger,
         )
 
-    expected_path = CONF_PATH.format(target_type=target_type)
+    expected_path = CONF_PATH.format(
+        target_type=hashlib.md5(target_type).hexdigest(),
+    )
     assert logger.string_appears_in('debug', expected_path)
 
     assert logger.string_appears_in('debug', 'loading reaction')

@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 
@@ -16,14 +17,16 @@ from nagiosrest_tenant import configure_tenant_group
 def get_group_config_location(group_type):
     return os.path.join(
         BASE_OBJECTS_DIR,
-        'groups/types/{group_type}.json'.format(group_type=group_type),
+        'groups/types/{group_type}.json'.format(
+            group_type=hashlib.md5(group_type).hexdigest(),
+        ),
     )
 
 
 def get_group_host_configuration_destination(group_type, tenant):
     return 'groups/tenants/{tenant}/{group_type}.cfg'.format(
-        group_type=group_type,
-        tenant=tenant,
+        group_type=hashlib.md5(group_type).hexdigest(),
+        tenant=hashlib.md5(tenant).hexdigest(),
     )
 
 
@@ -72,11 +75,13 @@ def get_meta_group_configuration_destination(group_type,
                                              group_instance_prefix,
                                              tenant):
     return (
-        'groups/members/{tenant}/{group_type}/meta/'
+        'groups/group_instances/{tenant}/{group_type}/meta/'
         '{group_instance_prefix}.cfg'.format(
-            group_type=group_type,
-            group_instance_prefix=group_instance_prefix,
-            tenant=tenant,
+            group_type=hashlib.md5(group_type).hexdigest(),
+            group_instance_prefix=hashlib.md5(
+                group_instance_prefix
+            ).hexdigest(),
+            tenant=hashlib.md5(tenant).hexdigest(),
         )
     )
 
@@ -84,10 +89,13 @@ def get_meta_group_configuration_destination(group_type,
 def get_group_check_configuration_destination(group_type,
                                               group_name,
                                               tenant):
-    return 'groups/members/{tenant}/{group_type}/{group_name}.cfg'.format(
-        group_type=group_type,
-        group_name=group_name,
-        tenant=tenant,
+    return (
+        'groups/group_instances/{tenant}/{group_type}/'
+        '{group_name}.cfg'.format(
+            group_type=hashlib.md5(group_type).hexdigest(),
+            group_name=hashlib.md5(group_name).hexdigest(),
+            tenant=hashlib.md5(tenant).hexdigest(),
+        )
     )
 
 

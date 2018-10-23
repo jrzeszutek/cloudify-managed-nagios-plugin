@@ -1,4 +1,5 @@
 #! /usr/bin/env python
+import hashlib
 import json
 import os
 import re
@@ -175,7 +176,7 @@ def find_target_instance(action, details, message_source, logger):
 def determine_reaction(target_type, trap_value, logger):
     reaction = None
     reaction_path = REACTION_CONFIG_PATH.format(
-        target_type=target_type,
+        target_type=hashlib.md5(target_type).hexdigest(),
         oid=trap_value,
     )
     logger.debug('Looking up reaction from {path}'.format(

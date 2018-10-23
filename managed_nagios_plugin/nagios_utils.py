@@ -1,4 +1,5 @@
 #! /usr/bin/env python
+import os
 import re
 import time
 
@@ -385,3 +386,43 @@ def get_nagios_status():
     return parse_nagios_data_file(
         NAGIOS_STATUS_FILE, separator='=',
     )
+
+
+def get_types(which_type, logger):
+    types_path = {
+        'group': '/etc/nagios/objects/groups/types',
+        'target': '/etc/nagios/objects/target_types',
+    }[which_type]
+
+    type_files = [
+        filename
+        for filename in os.listdir(types_path)
+        if filename.endswith('.cfg')
+    ]
+    logger.debug('Checking type files: {files}'.format(
+        files=', '.join(type_files),
+    ))
+
+    found_types = []
+    for type_file in type_files:
+        logger.debug('Checking file: {path}'.format(path=type_file))
+        with open(os.path.join(types_path, type_file)) as type_handle:
+            type_content = type_handle.readlines()
+
+        for line in type_content:
+            line = line.strip()
+            logger.debug('Checking line: {line}'.format(line=line))
+            if which_type == 'group':
+                if line.startswith('hostgroup_name '):
+                    group = line.split('group_type:', 1)[1]
+                    logger.debug('Found group: {group}'.format(group=group))
+                    found_types.append(group)
+            elif which_type == 'target':
+                if 'target_type:' in line:
+                    target_type = line.split('target_type:', 1)[1]
+                    logger.debug('Found target type: {target_type}'.format(
+                        target_type=target_type,
+                    ))
+                    found_types.append(target_type)
+
+    return found_types

@@ -1,4 +1,5 @@
 from ConfigParser import ConfigParser
+import hashlib
 import os
 
 from cloudify.decorators import operation
@@ -129,6 +130,10 @@ def delete(ctx):
     for member in members:
         node_details = get_node_details_from_name(member)
         if node_details:
+            node_details = {
+                key: hashlib.md5(value).hexdigest()
+                for key, value in node_details.items()
+            }
             remove_configuration_file(
                 ctx.logger,
                 'deployments/{tenant}/{deployment}/{node}.cfg'.format(
@@ -141,7 +146,7 @@ def delete(ctx):
             remove_configuration_file(
                 ctx.logger,
                 'targets/{target}.cfg'.format(
-                    target=member,
+                    target=hashlib.md5(member).hexdigest(),
                 ),
                 sudo=True,
                 reload_service=False,
@@ -149,6 +154,7 @@ def delete(ctx):
 
     ctx.logger.info('Removing tenant target types')
     target_type_config = '{name}.cfg'.format(name=name)
+    # Each entry is: leading_path, directories, files
     for entry in os.walk('/etc/nagios/objects/target_types'):
         if entry[0] == '/etc/nagios/objects/target_types':
             continue

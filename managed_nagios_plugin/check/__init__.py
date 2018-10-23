@@ -1,3 +1,4 @@
+import hashlib
 import os
 
 from managed_nagios_plugin.cloudify_utils import (
@@ -14,13 +15,14 @@ from managed_nagios_plugin.utils import (
 
 def get_check_configuration_destination(target_type, name):
     return 'checks/{target_type}/{name}.cfg'.format(
-        target_type=target_type,
-        name=name,
+        target_type=hashlib.md5(target_type).hexdigest(),
+        name=hashlib.md5(name).hexdigest(),
     )
 
 
 def get_check_basedir(target_type):
-    return os.path.join(BASE_OBJECTS_DIR, 'checks', target_type)
+    return os.path.join(BASE_OBJECTS_DIR, 'checks',
+                        hashlib.md5(target_type).hexdigest())
 
 
 def create_check(logger, check_type, target_type, name, params):

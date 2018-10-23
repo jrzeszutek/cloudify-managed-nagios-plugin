@@ -113,6 +113,10 @@ def main(args):
         group_type=args.group_type,
         group_name=args.group_instance,
     )
+    logger.debug('Looking for group members in {path}'.format(
+        path=group_path,
+    ))
+
     group_members = []
     if not os.path.isdir(group_path):
         message = 'There are no checks associated with this group'
@@ -129,6 +133,9 @@ def main(args):
                     node=node,
                 )
             )
+    logger.debug('Group members: {group_members}'.format(
+        group_members=', '.join(group_members)
+    ))
 
     status = get_nagios_status()['servicestatus']
     relevant_checks = [

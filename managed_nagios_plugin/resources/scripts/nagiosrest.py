@@ -148,11 +148,7 @@ def groups(tenant, group_type, group_name):
         logger.debug('Checking group type {group_type} exists'.format(
             group_type=group_type,
         ))
-        group_types = [
-            filename[:-len('.cfg')]
-            for filename in os.listdir('/etc/nagios/objects/groups/types')
-            if filename.endswith('.cfg')
-        ]
+        group_types = nagios_utils.get_types('group', logger)
         logger.debug('Found group types: {group_types}'.format(
             group_types=', '.join(group_types),
         ))
@@ -216,11 +212,7 @@ def meta_groups(tenant, group_type, group_instance_prefix):
         logger.debug('Checking group type {group_type} exists'.format(
             group_type=group_type,
         ))
-        group_types = [
-            filename[:-len('.cfg')]
-            for filename in os.listdir('/etc/nagios/objects/groups/types')
-            if filename.endswith('.cfg')
-        ]
+        group_types = nagios_utils.get_types('group', logger)
         logger.debug('Found group types: {group_types}'.format(
             group_types=', '.join(group_types),
         ))
@@ -295,11 +287,7 @@ def targets(tenant, deployment, instance_id):
         logger.debug('Checking target type {name} exists'.format(
             name=request_data['target_type'],
         ))
-        target_types = [
-            filename[:-len('.cfg')]
-            for filename in os.listdir('/etc/nagios/objects/target_types')
-            if filename.endswith('.cfg')
-        ]
+        target_types = nagios_utils.get_types('target', logger)
         logger.debug('Found target types: {target_types}'.format(
             target_types=', '.join(target_types),
         ))

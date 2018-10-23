@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 
@@ -72,7 +73,9 @@ def create_group(ctx):
         data=json.dumps(configuration),
         destination=os.path.join(
             BASE_OBJECTS_DIR,
-            'groups/types/{name}.json'.format(name=name)
+            'groups/types/{name}.json'.format(
+                name=hashlib.md5(name).hexdigest(),
+            )
         ),
         sudo=True,
     )
@@ -98,22 +101,35 @@ def delete_group(ctx):
     members_base = os.path.join(BASE_OBJECTS_DIR, 'groups/members')
     members_path = os.path.join(members_base, '{tenant}/{name}')
     for tenant in run(['ls', members_base], sudo=True).splitlines():
-        run(['rm', '-rf', members_path.format(tenant=tenant, name=name)],
-            sudo=True)
+        run(
+            [
+                'rm', '-rf', members_path.format(
+                    tenant=hashlib.md5(tenant).hexdigest(),
+                    name=hashlib.md5(name).hexdigest(),
+                )
+            ],
+            sudo=True,
+        )
 
     group_tenant_conf_base = os.path.join(BASE_OBJECTS_DIR, 'groups/tenants')
     group_tenant_conf_path = os.path.join(group_tenant_conf_base,
                                           '{tenant}/{name}.cfg')
     for tenant in run(['ls', members_base], sudo=True).splitlines():
-        run(['rm', '-f', group_tenant_conf_path.format(tenant=tenant,
-                                                       name=name)],
-            sudo=True)
+        run(
+            [
+                'rm', '-f', group_tenant_conf_path.format(
+                    tenant=hashlib.md5(tenant).hexdigest(),
+                    name=hashlib.md5(name).hexdigest(),
+                ),
+            ],
+            sudo=True,
+        )
 
     for group_conf in (
         'groups/types/{name}.json',
         'groups/types/{name}.cfg',
     ):
         group_conf_path = os.path.join(BASE_OBJECTS_DIR, group_conf).format(
-            name=name,
+            name=hashlib.md5(name).hexdigest(),
         )
         run(['rm', '-f', group_conf_path], sudo=True)

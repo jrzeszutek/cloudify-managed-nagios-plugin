@@ -1,3 +1,4 @@
+import hashlib
 import os
 
 from utils import (
@@ -9,28 +10,30 @@ from nagiosrest_tenant import configure_tenant_group
 
 
 def get_target_configuration_destination(name):
-    return 'targets/{name}.cfg'.format(name=name)
+    return 'targets/{name}.cfg'.format(
+        name=hashlib.md5(name).hexdigest(),
+    )
 
 
 def get_node_configuration_destination(tenant, deployment, node):
     return 'deployments/{tenant}/{deployment}/{node}.cfg'.format(
-        tenant=tenant,
-        deployment=deployment,
-        node=node,
+        tenant=hashlib.md5(tenant).hexdigest(),
+        deployment=hashlib.md5(deployment).hexdigest(),
+        node=hashlib.md5(node).hexdigest(),
     )
 
 
 def get_tenant_deployment_configuration_destination(tenant, deployment):
     return 'deployments/{tenant}/{deployment}.cfg'.format(
-        tenant=tenant,
-        deployment=deployment,
+        tenant=hashlib.md5(tenant).hexdigest(),
+        deployment=hashlib.md5(deployment).hexdigest(),
     )
 
 
 def get_tenant_target_type_configuration_destination(tenant, target_type):
     return 'target_types/{tenant}/{target_type}.cfg'.format(
-        tenant=tenant,
-        target_type=target_type,
+        tenant=hashlib.md5(tenant).hexdigest(),
+        target_type=hashlib.md5(target_type).hexdigest(),
     )
 
 

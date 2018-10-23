@@ -2,6 +2,7 @@
 from __future__ import print_function
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -10,6 +11,7 @@ import sys
 import time
 
 from constants import RATE_NODE_PATH, RATE_INSTANCE_PATH
+from nagios_utils import get_types
 from utils import run
 
 
@@ -166,16 +168,13 @@ def run_check(script_path, target_type, hostname, oid, logger,
     # Make sure we have the target type ini file we need
     target_type_ini_path = '{base}/{target_type}.ini'.format(
         base=TARGET_TYPE_BASE_PATH,
-        target_type=target_type,
+        target_type=hashlib.md5(target_type).hexdigest(),
     )
     logger.debug('Using target type configuration from: {path}'.format(
         path=target_type_ini_path,
     ))
     if not os.path.exists(target_type_ini_path):
-        valid = [
-            filename[:-4] for filename in os.listdir(TARGET_TYPE_BASE_PATH)
-            if filename.endswith('.ini')
-        ]
+        valid = get_types('target', logger)
         valid_string = ','.join(valid) if valid else 'None'
         logger.error(
             'Target type configuration invalid. Valid options were: '
