@@ -12,6 +12,12 @@ from nagiosrest_group import (
     create_group_instance,
     create_meta_group,
     associate_node_with_group_instance,
+    get_group_check_configuration_destination,
+    get_group_check_reaction_target_path,
+    get_group_members_path,
+    get_meta_group_configuration_destination,
+    get_meta_group_reaction_configuration_path,
+    get_meta_group_reaction_target_path,
 )
 from nagiosrest_target import (
     create_target,
@@ -187,6 +193,40 @@ def groups(tenant, group_type, group_name):
                 message,
                 500
             )
+    elif request.method == 'DELETE':
+        logger.info('Deleting group instance')
+        logger.debug('Removing group configuration')
+        conf_path = get_group_check_configuration_destination(
+            group_type,
+            group_name,
+            tenant,
+        )
+        remove_configuration_file(
+            logger,
+            conf_path,
+        )
+
+        logger.debug('Removing reaction target')
+        reaction_target_path = get_group_check_reaction_target_path(
+            group_type,
+            group_name,
+            tenant,
+        )
+        os.unlink(reaction_target_path)
+
+        logger.debug('Removing group node listing')
+        group_members_path = get_group_members_path(
+            group_type,
+            group_name,
+            tenant,
+        )
+        run(['rm', '-rf', group_members_path])
+
+        return '{group_name} of {group_type} for {tenant} deleted\n'.format(
+            group_name=group_name,
+            group_type=group_type,
+            tenant=tenant,
+        )
 
 
 @application.route(
@@ -262,6 +302,40 @@ def meta_groups(tenant, group_type, group_instance_prefix):
                 message,
                 500
             )
+    elif request.method == 'DELETE':
+        logger.info('Deleting group instance')
+        logger.debug('Removing group configuration')
+        conf_path = get_meta_group_configuration_destination(
+            group_type,
+            group_instance_prefix,
+            tenant,
+        )
+        remove_configuration_file(
+            logger,
+            conf_path,
+        )
+
+        logger.debug('Removing reaction configuration path')
+        reaction_conf_path = get_meta_group_reaction_configuration_path(
+            group_type,
+            group_instance_prefix,
+            tenant,
+        )
+        os.unlink(reaction_conf_path)
+
+        logger.debug('Removing reaction target path')
+        reaction_target_path = get_meta_group_reaction_target_path(
+            group_type,
+            group_instance_prefix,
+            tenant,
+        )
+        os.unlink(reaction_target_path)
+
+        return '{group_prefix} of {group_type} for {tenant} deleted\n'.format(
+            group_prefix=group_instance_prefix,
+            group_type=group_type,
+            tenant=tenant,
+        )
 
 
 @application.route("/targets/<tenant>/<deployment>/<instance_id>",

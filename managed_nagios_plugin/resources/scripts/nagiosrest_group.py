@@ -99,18 +99,30 @@ def get_group_check_configuration_destination(group_type,
     )
 
 
-def get_group_deployment_node_path(tenant, deployment,
-                                   group_type, group_name):
+def get_group_members_path(group_type,
+                           group_name,
+                           tenant):
     return os.path.join(
         BASE_OBJECTS_DIR,
         (
-            'groups/members/{tenant}/{group_type}/{group_name}/{deployment}'
+            'groups/members/{tenant}/{group_type}/{group_name}'
         ).format(
             tenant=tenant,
             group_type=group_type,
             group_name=group_name,
-            deployment=deployment,
         )
+    )
+
+
+def get_group_deployment_node_path(tenant, deployment,
+                                   group_type, group_name):
+    return os.path.join(
+        get_group_members_path(
+            tenant=tenant,
+            group_type=group_type,
+            group_name=group_name,
+        ),
+        deployment,
     )
 
 
