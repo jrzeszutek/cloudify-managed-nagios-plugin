@@ -1,3 +1,4 @@
+import hashlib
 import subprocess
 
 import mock
@@ -8,11 +9,13 @@ from tests.fakes import FakeLogger
 BASE_DIR_LIST = ['no.in', 'this.cfg', 'other.cfg']
 
 
+@mock.patch('nagios_plugin_utils.get_types')
 @mock.patch('nagios_plugin_utils.os')
 @mock.patch('nagios_plugin_utils.check_output')
 @mock.patch('nagios_plugin_utils.sys.exit')
 @mock.patch('nagios_plugin_utils.print')
-def test_run_check_missing_ini(mock_print, exit, mock_subproc, mock_os):
+def test_run_check_missing_ini(mock_print, exit, mock_subproc, mock_os,
+                               mock_get_types):
     logger = FakeLogger()
     script_path = 'something'
     target_type = 'thistargettype'
@@ -24,6 +27,8 @@ def test_run_check_missing_ini(mock_print, exit, mock_subproc, mock_os):
     ini_names = ['yes', 'that']
     ini_files = [ini_name + '.ini' for ini_name in ini_names]
     mock_os.listdir.return_value = BASE_DIR_LIST + ini_files
+
+    mock_get_types.return_value = ini_names
 
     nagios_plugin_utils.run_check(script_path, target_type, hostname,
                                   oid, logger, ignore_unknown)
@@ -39,11 +44,13 @@ def test_run_check_missing_ini(mock_print, exit, mock_subproc, mock_os):
     exit.assert_called_once_with(nagios_plugin_utils.STATUS_UNKNOWN)
 
 
+@mock.patch('nagios_plugin_utils.get_types')
 @mock.patch('nagios_plugin_utils.os')
 @mock.patch('nagios_plugin_utils.check_output')
 @mock.patch('nagios_plugin_utils.sys.exit')
 @mock.patch('nagios_plugin_utils.print')
-def test_run_check_no_inis(mock_print, exit, mock_subproc, mock_os):
+def test_run_check_no_inis(mock_print, exit, mock_subproc, mock_os,
+                           mock_get_types):
     logger = FakeLogger()
     script_path = 'something'
     target_type = 'thistargettype'
@@ -53,6 +60,8 @@ def test_run_check_no_inis(mock_print, exit, mock_subproc, mock_os):
 
     mock_os.path.exists.return_value = False
     mock_os.listdir.return_value = BASE_DIR_LIST
+
+    mock_get_types.return_value = []
 
     nagios_plugin_utils.run_check(script_path, target_type, hostname,
                                   oid, logger, ignore_unknown)
@@ -66,11 +75,13 @@ def test_run_check_no_inis(mock_print, exit, mock_subproc, mock_os):
     exit.assert_called_once_with(nagios_plugin_utils.STATUS_UNKNOWN)
 
 
+@mock.patch('nagios_plugin_utils.get_types')
 @mock.patch('nagios_plugin_utils.os')
 @mock.patch('nagios_plugin_utils.check_output')
 @mock.patch('nagios_plugin_utils.sys.exit')
 @mock.patch('nagios_plugin_utils.print')
-def test_run_check_missing_script(mock_print, exit, mock_subproc, mock_os):
+def test_run_check_missing_script(mock_print, exit, mock_subproc, mock_os,
+                                  mock_get_types):
     logger = FakeLogger()
     script_path = 'something'
     target_type = 'thistargettype'
@@ -86,7 +97,9 @@ def test_run_check_missing_script(mock_print, exit, mock_subproc, mock_os):
                                   oid, logger, ignore_unknown)
 
     exist_check = mock_os.path.exists.call_args_list[0][0][0]
-    assert exist_check.endswith(target_type + '.ini')
+    assert exist_check.endswith(
+        hashlib.md5(target_type).hexdigest() + '.ini'
+    )
 
     mock_print_arg = mock_print.call_args_list[0][0][0].lower()
     assert 'check_snmp' in mock_print_arg
@@ -96,11 +109,13 @@ def test_run_check_missing_script(mock_print, exit, mock_subproc, mock_os):
     exit.assert_called_once_with(nagios_plugin_utils.STATUS_UNKNOWN)
 
 
+@mock.patch('nagios_plugin_utils.get_types')
 @mock.patch('nagios_plugin_utils.os')
 @mock.patch('nagios_plugin_utils.check_output')
 @mock.patch('nagios_plugin_utils.sys.exit')
 @mock.patch('nagios_plugin_utils.print')
-def test_run_check_bad_output(mock_print, exit, mock_subproc, mock_os):
+def test_run_check_bad_output(mock_print, exit, mock_subproc, mock_os,
+                              mock_get_types):
     logger = FakeLogger()
     script_path = 'something'
     target_type = 'thistargettype'
@@ -134,11 +149,13 @@ def test_run_check_bad_output(mock_print, exit, mock_subproc, mock_os):
     exit.assert_called_once_with(exit_status)
 
 
+@mock.patch('nagios_plugin_utils.get_types')
 @mock.patch('nagios_plugin_utils.os')
 @mock.patch('nagios_plugin_utils.check_output')
 @mock.patch('nagios_plugin_utils.sys.exit')
 @mock.patch('nagios_plugin_utils.print')
-def test_run_check_ignore_unknown(mock_print, exit, mock_subproc, mock_os):
+def test_run_check_ignore_unknown(mock_print, exit, mock_subproc, mock_os,
+                                  mock_get_types):
     logger = FakeLogger()
     script_path = 'something'
     target_type = 'thistargettype'
@@ -171,12 +188,13 @@ def test_run_check_ignore_unknown(mock_print, exit, mock_subproc, mock_os):
     assert exit.call_count == 0
 
 
+@mock.patch('nagios_plugin_utils.get_types')
 @mock.patch('nagios_plugin_utils.os')
 @mock.patch('nagios_plugin_utils.check_output')
 @mock.patch('nagios_plugin_utils.sys.exit')
 @mock.patch('nagios_plugin_utils.print')
 def test_run_check_ignore_not_unknown(mock_print, exit, mock_subproc,
-                                      mock_os):
+                                      mock_os, mock_get_types):
     logger = FakeLogger()
     script_path = 'something'
     target_type = 'thistargettype'
@@ -210,11 +228,13 @@ def test_run_check_ignore_not_unknown(mock_print, exit, mock_subproc,
     exit.assert_called_once_with(exit_status)
 
 
+@mock.patch('nagios_plugin_utils.get_types')
 @mock.patch('nagios_plugin_utils.os')
 @mock.patch('nagios_plugin_utils.check_output')
 @mock.patch('nagios_plugin_utils.sys.exit')
 @mock.patch('nagios_plugin_utils.print')
-def test_run_check_success(mock_print, exit, mock_subproc, mock_os):
+def test_run_check_success(mock_print, exit, mock_subproc, mock_os,
+                           mock_get_types):
     logger = FakeLogger()
     script_path = 'something'
     target_type = 'thistargettype'
