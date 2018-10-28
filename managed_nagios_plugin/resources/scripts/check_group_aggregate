@@ -1,6 +1,7 @@
 #! /usr/bin/env python
 from __future__ import print_function
 
+import json
 import os
 import sys
 
@@ -137,10 +138,21 @@ def main(args):
         group_members=', '.join(group_members)
     ))
 
+    checks_path = (
+        '/etc/nagios/objects/groups/checks/{name}.json'
+    ).format(name=args.group_type)
+    logger.debug('Getting target checks from {path}'.format(
+        path=checks_path,
+    ))
+    with open(checks_path) as checks_handle:
+        checks = json.load(checks_handle)
+    logger.debug('Found checks: {checks}'.format(checks=', '.join(checks)))
+
     status = get_nagios_status()['servicestatus']
     relevant_checks = [
         item for item in status
         if item['host_name'] in group_members
+        and item['service_description'].split(':')[1] in checks
     ]
     all_values = []
     for check in relevant_checks:

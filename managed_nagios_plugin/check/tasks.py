@@ -29,6 +29,27 @@ def create_group(ctx):
             'Group names must not contain : or /.'
         )
 
+    ctx.logger.info('Getting related checks')
+    check_relationships = get_all_relationship_targets(
+        ctx=ctx,
+        target_relation_type='group_check',
+        no_target_error=(
+            'Group types must be connected to 1+ checks with '
+            'relationship {target_relation_type}'
+        ),
+    )
+    allowed_check_types = (
+        'cloudify.nagios.nodes.SNMPAggregateValueCheck',
+    )
+    for check in check_relationships:
+        if check.node.type not in allowed_check_types:
+            raise NonRecoverableError(
+                'Group checks only support targeting checks of type: '
+                '{allowed}'.format(
+                    allowed = ', '.join(allowed_check_types),
+                )
+            )
+
     ctx.logger.info('Generating group configuration')
     group_checks = get_all_relationship_targets(
         ctx=ctx,
@@ -65,7 +86,8 @@ def create_group(ctx):
     ctx.logger.info('Creating group subdirectories')
     for subdir in ('groups/tenants',
                    'groups/types',
-                   'groups/members'):
+                   'groups/members',
+                   'groups/checks'):
         make_config_subdir(subdir, sudo=True)
 
     ctx.logger.info('Creating group base configuration')
@@ -75,6 +97,22 @@ def create_group(ctx):
             BASE_OBJECTS_DIR,
             'groups/types/{name}.json'.format(
                 name=hashlib.md5(name).hexdigest(),
+            )
+        ),
+        sudo=True,
+    )
+
+    ctx.logger.info('Deploying check list')
+    check_list = [
+        check.node.properties['check_description']
+        for check in check_relationships
+    ]
+    deploy_file(
+        data=json.dumps(check_list),
+        destination=os.path.join(
+            BASE_OBJECTS_DIR,
+            'groups/checks/{name}.json'.format(
+                name=name,
             )
         ),
         sudo=True,

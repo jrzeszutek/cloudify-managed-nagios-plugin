@@ -91,7 +91,7 @@ def create(ctx):
         ctx=ctx,
         target_relation_type='target_type_checks',
         no_target_error=(
-            'Target types must be connected to checks with '
+            'Target types must be connected to 1+ checks with '
             'relationship {target_relation_type}'
         ),
     )
