@@ -14,7 +14,7 @@ def get_resources():
 
 setup(
     name='cloudify-managed-nagios-plugin',
-    version='1.0.4',
+    version='1.0.4-43',
     packages=[
         'managed_nagios_plugin',
         'managed_nagios_plugin.check',
@@ -23,7 +23,7 @@ setup(
         'managed_nagios_plugin.snmp_trap',
         'managed_nagios_plugin.target_type',
     ],
-    install_requires=['cloudify-common>=4.4.0',
+    install_requires=['cloudify-plugins-common',
                       'Jinja2>=2.7.2'],
     package_data={'managed_nagios_plugin': get_resources()},
 )
