@@ -38,7 +38,7 @@ SSL_KEY_PATH = '/etc/nagios/ssl.key'
 SSL_CERT_PATH = '/etc/nagios/ssl.crt'
 BLUEPRINT_SSL_KEY_PATH = 'ssl/{key_file}'
 BLUEPRINT_SSL_CERT_PATH = 'ssl/{cert_file}'
-
+NAGIOSREST_SERVICES = ['nagiosrest-gunicorn', 'httpd']
 
 @operation
 def create(ctx):
@@ -235,7 +235,7 @@ def create(ctx):
         run(['restorecon', rate_storage_path], sudo=True)
 
     if props['ssl_certificate']:
-        
+
         if props['ssl_certificate'].startswith("-----BEGIN CERTIFICATE-----"):
             deploy_file(
                 data=props['ssl_key'],
@@ -571,7 +571,9 @@ def configure(ctx):
 @operation
 def start(ctx):
     ctx.logger.info('Enabling and starting nagios and httpd services')
-    services = ['nagios', 'httpd', 'nagiosrest-gunicorn', 'incrond']
+    services = ['nagios', 'incrond']
+    if ctx.node.properties['start_nagiosrest']:
+        services.extend(NAGIOSREST_SERVICES)
     if ctx.node.properties['trap_community']:
         services.append('snmptrapd')
     for service in services:
@@ -734,3 +736,12 @@ def reconcile_monitoring(ctx, only_deployments=None, only_tenants=None):
                         'of tenant and deployment filtering left no targets '
                         'or there are no monitored deployments using the '
                         'nagiosrest plugin on the cloudify manager.')
+
+
+@operation
+def start_nagiosrest(ctx):
+    ctx.logger.info('Enabling and starting nagios and httpd services')
+    services = ['httpd', 'nagiosrest-gunicorn']
+    for service in services:
+        enable_service(service)
+        start_service(service)
