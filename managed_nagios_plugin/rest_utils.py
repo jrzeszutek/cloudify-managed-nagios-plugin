@@ -1,9 +1,10 @@
+from __future__ import absolute_import
 import json
 import time
 
 import requests
 
-import nagios_utils as nagios
+from . import nagios_utils as nagios
 
 
 MANAGER_CREDS_PATH = '/etc/nagios/cloudify_manager.json'

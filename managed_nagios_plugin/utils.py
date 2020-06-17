@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 import os
 import pkgutil
 import re
@@ -7,7 +8,7 @@ import time
 
 import jinja2
 
-from constants import (
+from .constants import (
     OBJECT_DIR_PERMISSIONS,
     OBJECT_OWNERSHIP,
     OBJECT_PERMISSIONS,
