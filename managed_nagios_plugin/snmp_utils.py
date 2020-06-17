@@ -23,7 +23,7 @@ class OIDLookup(object):
             results[oid] = self._normalised_oids[oid]
 
         if single_lookup:
-            return results.values()[0]
+            return list(results.values())[0]
         else:
             return results
 
