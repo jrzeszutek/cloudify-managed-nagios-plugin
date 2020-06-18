@@ -1,4 +1,5 @@
 from __future__ import absolute_import
+from cloudify._compat import text_type
 import os
 import pkgutil
 import re
@@ -25,7 +26,7 @@ def yum_remove(packages):
 
 
 def _yum_action(action, packages):
-    if isinstance(packages, basestring):
+    if isinstance(packages, text_type):
         packages = [packages]
 
     yum_install_command = ['yum', action, '-y']
