@@ -140,4 +140,12 @@ workflows:
           branches:
             only:
               - master
-    jobs: *all_jobs
+    jobs:
+      - wagon:
+          filters:
+            branches:
+              only: /([0-9\.]*\-build|master|dev)/
+      - rhel_wagon:
+          filters:
+            branches:
+              only: /([0-9\.]*\-build|master|dev)/
