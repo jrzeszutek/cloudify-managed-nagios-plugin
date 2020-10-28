@@ -274,7 +274,7 @@ def upload_plugin(plugin_path, yaml_path, client):
 
 
 def create_secrets(secrets, client):
-    for key, value in secrets.items():
+    for key, value in list(secrets.items()):
         client.secrets.create(key=key, value=value, is_hidden_value=True)
 
 

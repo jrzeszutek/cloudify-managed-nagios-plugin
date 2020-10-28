@@ -1,4 +1,7 @@
-from ConfigParser import ConfigParser
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
+from configparser import ConfigParser
 import hashlib
 import os
 
@@ -76,7 +79,7 @@ def create(ctx):
             'Currently checks require SNMP configuration.'
         )
     else:
-        for key, value in snmp_params.items():
+        for key, value in list(snmp_params.items()):
             connection_config.set('snmp_params', key, value)
         connection_config_text = _FakeFile()
         connection_config.write(connection_config_text)
@@ -132,7 +135,7 @@ def delete(ctx):
         if node_details:
             node_details = {
                 key: hashlib.md5(value).hexdigest()
-                for key, value in node_details.items()
+                for key, value in list(node_details.items())
             }
             remove_configuration_file(
                 ctx.logger,

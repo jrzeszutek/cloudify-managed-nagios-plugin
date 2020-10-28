@@ -1,3 +1,5 @@
+from builtins import zip
+from builtins import object
 from cloudify._compat import text_type
 
 import subprocess

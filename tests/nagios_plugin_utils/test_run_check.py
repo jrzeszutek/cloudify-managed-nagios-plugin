@@ -1,3 +1,4 @@
+from builtins import str
 import hashlib
 import subprocess
 
@@ -84,7 +85,7 @@ def test_run_check_missing_script(mock_print, exit, mock_subproc, mock_os,
                                   mock_get_types):
     logger = FakeLogger()
     script_path = 'something'
-    target_type = 'thistargettype'
+    target_type = 'thistargettype'.encode('utf-8')
     hostname = 'thehost'
     oid = 'theoid'
     ignore_unknown = False

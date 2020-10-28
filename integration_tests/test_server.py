@@ -1,4 +1,5 @@
 from __future__ import absolute_import
+from builtins import str
 import os
 import ssl
 
@@ -113,7 +114,7 @@ def test_generated_certificate():
 
 
 def check_no_insecure_ssl_protos(address):
-    for proto_name, protocol in INSECURE_PROTOCOLS.items():
+    for proto_name, protocol in list(INSECURE_PROTOCOLS.items()):
         try:
             ssl.get_server_certificate((address, 443), protocol['proto'])
             raise AssertionError(

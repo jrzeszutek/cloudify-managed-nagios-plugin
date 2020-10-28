@@ -1,4 +1,5 @@
 from __future__ import absolute_import
+from builtins import str
 from cloudify._compat import text_type
 import os
 import pkgutil
@@ -9,7 +10,7 @@ import time
 
 import jinja2
 
-from .constants import (
+from managed_nagios_plugin.constants import (
     OBJECT_DIR_PERMISSIONS,
     OBJECT_OWNERSHIP,
     OBJECT_PERMISSIONS,

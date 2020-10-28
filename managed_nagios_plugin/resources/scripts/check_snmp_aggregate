@@ -105,7 +105,7 @@ def main(args):
         help=(
             "Approach to take when aggregating results."
         ),
-        choices=APPROACHES.keys(),
+        choices=APPROACHES,
         required=True,
     )
     parser.add_argument(

@@ -165,6 +165,8 @@ def validate_and_structure_thresholds(low_warning,
 
 def run_check(script_path, target_type, hostname, oid, logger,
               ignore_unknown=False):
+    if not isinstance(target_type, bytes):
+        target_type = target_type.encode('utf-8')
     # Make sure we have the target type ini file we need
     target_type_ini_path = '{base}/{target_type}.ini'.format(
         base=TARGET_TYPE_BASE_PATH,

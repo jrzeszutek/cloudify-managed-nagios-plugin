@@ -1,3 +1,4 @@
+from builtins import str
 import mock
 
 from nagios_plugin_utils import STATUS_UNKNOWN

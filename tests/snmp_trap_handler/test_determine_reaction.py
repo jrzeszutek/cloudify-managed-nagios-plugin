@@ -11,7 +11,7 @@ snmp_trap_handler.REACTION_CONFIG_PATH = CONF_PATH
 
 def test_missing_action():
     logger = FakeLogger()
-    target_type = 'missing'
+    target_type = 'missing'.encode('utf-8')
     trap_value = 'sometrap'
 
     result = snmp_trap_handler.determine_reaction(
@@ -32,7 +32,7 @@ def test_missing_action():
 
 def test_empty_action():
     logger = FakeLogger()
-    target_type = 'empty'
+    target_type = 'empty'.encode('utf-8')
     trap_value = 'sometrap'
 
     with pytest.raises(ValueError):
@@ -54,7 +54,7 @@ def test_empty_action():
 
 def test_reaction_found():
     logger = FakeLogger()
-    target_type = 'onetrap'
+    target_type = 'onetrap'.encode('utf-8')
     trap_value = 'test_trap'
 
     result = snmp_trap_handler.determine_reaction(
@@ -75,7 +75,7 @@ def test_reaction_found():
 
 def test_no_reaction_found():
     logger = FakeLogger()
-    target_type = 'notrap'
+    target_type = 'notrap'.encode('utf-8')
     trap_value = 'test_trap'
 
     result = snmp_trap_handler.determine_reaction(
@@ -96,7 +96,7 @@ def test_no_reaction_found():
 
 def test_missing_traps():
     logger = FakeLogger()
-    target_type = 'missingtraps'
+    target_type = 'missingtraps'.encode('utf-8')
     trap_value = 'test_trap'
 
     with pytest.raises(KeyError):

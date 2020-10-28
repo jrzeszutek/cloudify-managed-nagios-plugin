@@ -1,4 +1,5 @@
 from __future__ import print_function
+from builtins import object
 from contextlib import contextmanager
 from pprint import pprint
 from cloudify._compat import text_type

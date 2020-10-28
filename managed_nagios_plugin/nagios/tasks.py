@@ -1,3 +1,4 @@
+from builtins import str
 import grp
 import json
 import logging
@@ -676,7 +677,7 @@ def reconcile_monitoring(ctx, only_deployments=None, only_tenants=None):
             targets[dep_id].append(node['id'])
 
         if targets:
-            for deployment, nodes in targets.items():
+            for deployment, nodes in list(targets.items()):
                 ctx.logger.info(
                     'Starting monitoring for deployment {deployment}'.format(
                         deployment=deployment,

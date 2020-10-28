@@ -1,3 +1,4 @@
+from builtins import str
 import mock
 
 import nagios_plugin_utils

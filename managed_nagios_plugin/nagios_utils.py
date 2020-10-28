@@ -4,8 +4,8 @@ import os
 import re
 import time
 
-from .constants import TENANT_DEPLOYMENT_HOSTGROUP
-from .utils import get_node_id
+from managed_nagios_plugin.constants import TENANT_DEPLOYMENT_HOSTGROUP
+from managed_nagios_plugin.utils import get_node_id
 
 NAGIOS_EXTERNAL_COMMAND_FILE = '/var/spool/nagios/cmd/nagios.cmd'
 NAGIOS_STATUS_FILE = '/var/log/nagios/status.dat'
@@ -221,7 +221,7 @@ def recheck_all_failing_checks_for_hostgroup(hostgroup_name,
         hostgroup_name,
         nagios_status_dict,
     )
-    for host_name, host_status in hostgroup_state.items():
+    for host_name, host_status in list(hostgroup_state.items()):
         recheck_all_failing_checks_for_host(host_name, host_status)
 
 
