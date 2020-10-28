@@ -1,14 +1,99 @@
-# Use the latest 2.1 version of CircleCI pipeline process engine. See: https://circleci.com/docs/2.0/configuration-reference
 version: 2.1
-# Use a package of configuration called an orb.
-orbs:
-  # Declare a dependency on the welcome-orb
-  welcome: circleci/welcome-orb@0.4.1
-# Orchestrate or schedule a set of jobs
-workflows:
-  # Name the workflow "welcome"
-  welcome:
-    # Run the welcome/run job in its own container
-    jobs:
-      - welcome/run
 
+checkout:
+  post:
+    - >
+      if [ -n "$CI_PULL_REQUEST" ]; then
+        PR_ID=${CI_PULL_REQUEST##*/}
+        git fetch origin +refs/pull/$PR_ID/merge:
+        git checkout -qf FETCH_HEAD
+      fi
+executors:
+  py27:
+    docker:
+      - image: circleci/python:2.7
+
+  py36:
+    docker:
+      - image: circleci/python:3.6
+
+  wagon_generator:
+    machine:
+      image: ubuntu-1604:201903-01
+
+
+commands:
+  generate_py27_wagon:
+    steps:
+      - run:
+          name: Create Workspace Build directory.
+          command: mkdir -p workspace/build
+      - run:
+          name: Build py27 Wagon
+          command: |
+              git clone https://github.com/cloudify-cosmo/cloudify-wagon-build-containers.git
+              docker build -t cloudify-centos-7-wagon-builder cloudify-wagon-build-containers/centos_7
+              docker run -v ~/project/:/packaging cloudify-centos-7-wagon-builder
+      - run:
+          name: Build py36 Wagon
+          command: |
+              git clone https://github.com/cloudify-cosmo/cloudify-wagon-build-containers.git
+              docker build -t cloudify-centos-7-py3-wagon-builder cloudify-wagon-build-containers/centos_7_py3
+              docker run -v ~/project/:/packaging cloudify-centos-7-py3-wagon-builder
+      - run:
+          name: copy wagon to workspace
+          command: cp *.wgn workspace/build/
+      - persist_to_workspace:
+          root: workspace
+          paths:
+            - build/*
+  
+  generate_py36_wagon:
+    steps:
+      - run:
+          name: Create Workspace Build directory.
+          command: mkdir -p workspace/build
+      - run:
+          name: Build py36 Wagon
+          command: |
+              git clone https://github.com/cloudify-cosmo/cloudify-wagon-build-containers.git
+              docker build -t cloudify-centos-7-py3-wagon-builder cloudify-wagon-build-containers/centos_7_py3
+              docker run -v ~/project/:/packaging cloudify-centos-7-py3-wagon-builder
+      - run:
+          name: copy wagon to workspace
+          command: cp *.wgn workspace/build/
+      - persist_to_workspace:
+          root: workspace
+          paths:
+            - build/*
+
+
+jobs:
+  unittests_py27:
+    executor: py27
+    steps:
+      - checkout
+      - run_unittest_py27
+
+  unittests_py36:
+    executor: py27
+    steps:
+      - checkout
+      - run_unittest_py36
+
+  wagon:
+    executor: wagon_generator
+    steps:
+      - checkout
+      - generate_py27_wagon
+      - generate_py36_wagon
+
+
+workflows:
+  version: 2.1
+  tests:
+    jobs: &all_jobs
+      - wagon:
+          filters:
+            branches:
+              only: migrate-to-py3
