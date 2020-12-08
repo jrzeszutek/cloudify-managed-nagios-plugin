@@ -18,6 +18,13 @@ from managed_nagios_plugin.constants import (
 )
 
 
+def _decode_if_bytes(input):
+    if isinstance(input, bytes):
+        return input.decode()
+    else:
+        return input
+
+
 def yum_install(packages):
     _yum_action('install', packages)
 
@@ -105,15 +112,16 @@ def trigger_nagios_reload(set_group=False):
 def run(command, sudo=False):
     if sudo:
         command = ['sudo'] + command
-    return subprocess.check_output(
-        command, stderr=subprocess.STDOUT,
-    )
+    return _decode_if_bytes(subprocess.check_output(
+        command, stderr=subprocess.STDOUT,))
 
 
 def deploy_file(data, destination,
                 ownership=OBJECT_OWNERSHIP,
                 permissions=OBJECT_PERMISSIONS,
                 sudo=False, template_params=None):
+    data = _decode_if_bytes(data)
+
     if template_params:
         data = jinja2.Template(data).render(**template_params)
 
