@@ -33,6 +33,7 @@ from managed_nagios_plugin.utils import (
     stop_service,
     yum_install,
     yum_remove,
+    _decode_if_bytes
 )
 
 SSL_KEY_PATH = '/etc/nagios/ssl.key'
@@ -85,10 +86,10 @@ def create(ctx):
     with open(
         os.path.join(tmp_path, 'cloudify-nagios-snmp-trap-handler.te'), 'w',
     ) as policy_handle:
-        policy_handle.write(pkgutil.get_data(
+        policy_handle.write(_decode_if_bytes(pkgutil.get_data(
             'managed_nagios_plugin',
             'resources/selinux/cloudify_nagios_snmp_trap_handler.te',
-        ))
+        )))
     run(['make', '-f', '/usr/share/selinux/devel/Makefile', '-C', tmp_path],
         sudo=True)
     run(['semodule',

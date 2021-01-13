@@ -14,7 +14,7 @@ from managed_nagios_plugin.snmp_utils import OIDLookup
 from managed_nagios_plugin.utils import (
     deploy_configuration_file,
     deploy_file,
-    trigger_nagios_reload,
+    trigger_nagios_reload
 )
 
 
@@ -23,13 +23,13 @@ oid_lookup = OIDLookup()
 
 def get_target_type_configuration_destination(name):
     return 'target_types/{name}.cfg'.format(
-        name=hashlib.md5(name).hexdigest(),
+        name=hashlib.md5(name.encode('utf-8')).hexdigest(),
     )
 
 
 def get_target_type_host_template_destination(name):
     return 'templates/{name}.cfg'.format(
-        name=hashlib.md5(name).hexdigest(),
+        name=hashlib.md5(name.encode('utf-8')).hexdigest(),
     )
 
 
@@ -37,7 +37,7 @@ def get_reaction_configuration_destination(name):
     return os.path.join(
         BASE_OBJECTS_DIR,
         'target_types/{name}.json'.format(
-            name=hashlib.md5(name).hexdigest(),
+            name=hashlib.md5(name.encode('utf-8')).hexdigest(),
         )
     )
 
@@ -83,7 +83,7 @@ def create_target_type(logger, name, description, check_relationships,
         # and will leave a warning in the logs every time it reloads
         # configuration for each notification_interval that is set lower
         # than check_interval.
-        notification_interval = max(1, props.get('check_interval', 1))
+        notification_interval = max(1, int(props.get('check_interval', 1)))
         if check.node.type == 'cloudify.nagios.nodes.SNMPTrapReaction':
             normalised_oid = oid_lookup.get(props['trap_oid'])
             if props['reaction']:
@@ -233,5 +233,5 @@ class _FakeFile(object):
 def get_connection_config_location(target_type):
     return os.path.join(
         BASE_OBJECTS_DIR, 'target_types',
-        hashlib.md5(target_type).hexdigest() + '.ini',
+        hashlib.md5(target_type.encode('utf-8')).hexdigest() + '.ini',
     )

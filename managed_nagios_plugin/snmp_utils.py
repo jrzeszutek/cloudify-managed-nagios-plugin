@@ -2,6 +2,7 @@ import subprocess
 from builtins import zip
 from builtins import object
 from cloudify._compat import text_type
+from managed_nagios_plugin.utils import _decode_if_bytes
 
 
 class OIDLookup(object):
@@ -58,9 +59,9 @@ class OIDLookup(object):
                         check_oids,
                         [
                             item.strip() for item in
-                            subprocess.check_output(
+                            _decode_if_bytes(subprocess.check_output(
                                 command + check_oids
-                            ).split('\n\n')
+                            )).split('\n\n')
                         ],
                     )
                 )
