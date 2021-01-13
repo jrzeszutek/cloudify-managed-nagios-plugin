@@ -1,6 +1,7 @@
+from __future__ import absolute_import
 import time
 
-import utils
+from . import utils
 
 
 def test_heal_on_threshold_exceeded():

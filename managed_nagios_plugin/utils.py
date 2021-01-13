@@ -1,3 +1,5 @@
+from __future__ import absolute_import
+from cloudify._compat import text_type
 import os
 import pkgutil
 import re
@@ -7,7 +9,7 @@ import time
 
 import jinja2
 
-from constants import (
+from .constants import (
     OBJECT_DIR_PERMISSIONS,
     OBJECT_OWNERSHIP,
     OBJECT_PERMISSIONS,
@@ -24,7 +26,7 @@ def yum_remove(packages):
 
 
 def _yum_action(action, packages):
-    if isinstance(packages, basestring):
+    if isinstance(packages, text_type):
         packages = [packages]
 
     yum_install_command = ['yum', action, '-y']
@@ -88,7 +90,7 @@ def trigger_nagios_reload(set_group=False):
         # before removing it
         run(['rm', reload_trigger_file], sudo=True)
     with open(reload_trigger_file, 'w') as trigger_handle:
-        trigger_handle.write(str(current_time + delay))
+        trigger_handle.write(text_type(current_time + delay))
     if set_group:
         # Allow nagios rest to delete this file
         run(['chgrp', 'nagios', reload_trigger_file], sudo=True)
@@ -178,7 +180,7 @@ def remove_configuration_file(logger, configuration_path,
     try:
         run(['mv', configuration_path, temp_location], sudo=sudo)
     except subprocess.CalledProcessError as err:
-        if 'No such file or directory' in str(err) and ignore_missing:
+        if 'No such file or directory' in text_type(err) and ignore_missing:
             validate = False
 
     if validate:

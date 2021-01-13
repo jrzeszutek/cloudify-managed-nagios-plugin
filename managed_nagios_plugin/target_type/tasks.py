@@ -1,4 +1,5 @@
-from ConfigParser import ConfigParser
+from cloudify._compat import SafeConfigParser as ConfigParser
+from cloudify._compat import text_type
 import hashlib
 import os
 
@@ -81,7 +82,7 @@ def create(ctx):
         connection_config_text = _FakeFile()
         connection_config.write(connection_config_text)
         deploy_file(
-            data=str(connection_config_text),
+            data=text_type(connection_config_text),
             destination=get_connection_config_location(name),
             sudo=True,
         )

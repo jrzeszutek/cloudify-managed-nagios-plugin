@@ -1,7 +1,9 @@
 import hashlib
 import json
 import os
+from builtins import object
 
+from cloudify._compat import text_type
 from cloudify.exceptions import NonRecoverableError
 
 from managed_nagios_plugin.check import create_check
@@ -199,7 +201,7 @@ def make_workflow_object(properties, disallowed=None):
                      'allow_custom_parameters',
                      'force'):
             value = properties[prop]
-            if isinstance(value, basestring):
+            if isinstance(value, text_type):
                 for substitution in disallowed:
                     if substitution in value:
                         raise NonRecoverableError(

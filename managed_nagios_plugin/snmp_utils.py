@@ -1,4 +1,7 @@
 import subprocess
+from builtins import zip
+from builtins import object
+from cloudify._compat import text_type
 
 
 class OIDLookup(object):
@@ -6,7 +9,7 @@ class OIDLookup(object):
 
     def get(self, oids):
         single_lookup = False
-        if isinstance(oids, basestring):
+        if isinstance(oids, text_type):
             single_lookup = True
             oids = [oids]
 
@@ -23,7 +26,7 @@ class OIDLookup(object):
             results[oid] = self._normalised_oids[oid]
 
         if single_lookup:
-            return results.values()[0]
+            return list(results.values())[0]
         else:
             return results
 

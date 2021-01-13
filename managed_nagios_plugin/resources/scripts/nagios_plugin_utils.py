@@ -133,12 +133,12 @@ def validate_and_structure_thresholds(low_warning,
                                       high_critical,
                                       logger):
     high_thresholds = [
-        threshold for threshold in high_warning, high_critical
+        threshold for threshold in (high_warning, high_critical)
         if threshold != ""
     ]
     logger.debug('High thresholds: {high}'.format(high=high_thresholds))
     low_thresholds = [
-        threshold for threshold in low_warning, low_critical
+        threshold for threshold in (low_warning, low_critical)
         if threshold != ""
     ]
     logger.debug('Low thresholds: {low}'.format(low=low_thresholds))

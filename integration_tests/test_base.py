@@ -1,4 +1,5 @@
-import utils
+from __future__ import absolute_import
+from . import utils
 
 
 def test_heal_unreachable_node():

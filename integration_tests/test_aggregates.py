@@ -1,6 +1,8 @@
+from __future__ import absolute_import
+from builtins import range
 import time
 
-import utils
+from . import utils
 
 
 def test_scale_down_on_mean_threshold_breach():

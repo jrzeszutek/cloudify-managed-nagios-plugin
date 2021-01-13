@@ -1,6 +1,8 @@
+from __future__ import absolute_import
+from builtins import range
 import time
 
-import utils
+from . import utils
 
 
 def test_trap_not_triggered_constraints():

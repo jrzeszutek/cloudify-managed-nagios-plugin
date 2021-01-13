@@ -1,9 +1,11 @@
+from __future__ import absolute_import
+from cloudify._compat import text_type
 import json
 import time
 
 import requests
 
-import nagios_utils as nagios
+from . import nagios_utils as nagios
 
 
 MANAGER_CREDS_PATH = '/etc/nagios/cloudify_manager.json'
@@ -100,9 +102,9 @@ def run_workflow(tenant, deployment, workflow_id, parameters,
         )
     except ManagerRequestFailed as err:
         logger.error('Starting workflow failed: {error}'.format(
-            error=str(err),
+            error=text_type(err),
         ))
-        raise StartWorkflowFailed(str(err))
+        raise StartWorkflowFailed(text_type(err))
 
     logger.debug('Retrieving ID from result {result}'.format(
         result=result,
@@ -130,9 +132,9 @@ def get_execution(tenant, execution_id, logger):
         )
     except ManagerRequestFailed as err:
         logger.error('Failed to retrieve execution: {error}'.format(
-            error=str(err),
+            error=text_type(err),
         ))
-        raise GetExecutionError(str(err))
+        raise GetExecutionError(text_type(err))
 
 
 def wait_for_execution_success(tenant, execution_id, logger,

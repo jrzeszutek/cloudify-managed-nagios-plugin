@@ -5,6 +5,7 @@ import os
 import pkgutil
 import tempfile
 
+from cloudify._compat import text_type
 from cloudify.decorators import operation
 from cloudify.exceptions import NonRecoverableError
 
@@ -701,7 +702,7 @@ def reconcile_monitoring(ctx, only_deployments=None, only_tenants=None):
                     ctx.logger.error(
                         '{deployment} failed to start workflow: {err}'.format(
                             deployment=deployment,
-                            err=str(err),
+                            err=text_type(err),
                         )
                     )
                     if tenant not in problem_deployments:
