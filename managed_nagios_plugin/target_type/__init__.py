@@ -3,7 +3,7 @@ import json
 import os
 from builtins import object
 
-from cloudify._compat import text_type
+from managed_nagios_plugin._compat import text_type
 from cloudify.exceptions import NonRecoverableError
 
 from managed_nagios_plugin.check import create_check

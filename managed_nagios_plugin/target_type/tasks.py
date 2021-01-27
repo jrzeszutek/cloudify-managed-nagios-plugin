@@ -1,5 +1,5 @@
-from cloudify._compat import SafeConfigParser as ConfigParser
-from cloudify._compat import text_type
+from managed_nagios_plugin._compat import SafeConfigParser as ConfigParser
+from managed_nagios_plugin._compat import text_type
 import hashlib
 import os
 

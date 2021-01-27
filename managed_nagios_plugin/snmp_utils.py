@@ -1,7 +1,5 @@
 import subprocess
-from builtins import zip
-from builtins import object
-from cloudify._compat import text_type
+from managed_nagios_plugin._compat import text_type
 from managed_nagios_plugin.utils import _decode_if_bytes
 
 

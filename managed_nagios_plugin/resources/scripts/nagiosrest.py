@@ -2,8 +2,6 @@ import os
 from subprocess import CalledProcessError
 import time
 
-from builtins import object
-
 from flask import (
     Flask,
     request,

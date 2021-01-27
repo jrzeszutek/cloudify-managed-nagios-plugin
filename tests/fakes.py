@@ -1,6 +1,4 @@
-from __future__ import print_function
-from builtins import object
-from cloudify._compat import text_type
+from managed_nagios_plugin._compat import text_type
 from contextlib import contextmanager
 from pprint import pprint
 

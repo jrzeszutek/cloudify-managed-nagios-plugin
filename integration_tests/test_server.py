@@ -1,5 +1,4 @@
-from __future__ import absolute_import
-from cloudify._compat import text_type
+from managed_nagios_plugin._compat import text_type
 import os
 import ssl
 

@@ -5,10 +5,10 @@ import os
 import pkgutil
 import tempfile
 
-from cloudify._compat import text_type
 from cloudify.decorators import operation
 from cloudify.exceptions import NonRecoverableError
 
+from managed_nagios_plugin._compat import text_type
 from managed_nagios_plugin.constants import (
     BASE_OBJECTS_DIR,
     OBJECT_DIR_PERMISSIONS,

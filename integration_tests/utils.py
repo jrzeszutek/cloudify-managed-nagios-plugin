@@ -1,4 +1,3 @@
-from __future__ import print_function
 from base64 import urlsafe_b64encode
 from cloudify_rest_client import CloudifyClient
 import os

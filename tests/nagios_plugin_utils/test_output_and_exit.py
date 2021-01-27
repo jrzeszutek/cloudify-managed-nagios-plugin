@@ -1,6 +1,6 @@
 import mock
 
-from cloudify._compat import text_type
+from managed_nagios_plugin._compat import text_type
 
 import nagios_plugin_utils
 
